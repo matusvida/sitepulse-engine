@@ -1,0 +1,73 @@
+services:
+  # ── Postgres (optional – for the worker) ─────────────
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: sitepulse
+      POSTGRES_PASSWORD: sitepulse
+      POSTGRES_DB: sitepulse
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  # ── Detection API ────────────────────────────────────
+  api:
+    build: .
+    ports:
+      - "8080:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Point at the HOST MinIO via the special Docker DNS name.
+      # On Docker Desktop (Win/Mac) host.docker.internal resolves to the host.
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: admin
+      MINIO_SECRET_KEY: password123
+      MINIO_BUCKET_DEFAULT: tower-tl
+      ENABLE_DB: "true"
+      ENABLE_ROI: "true"
+      POSTGRES_DSN: postgresql://sitepulse:sitepulse@postgres:5432/sitepulse
+    volumes:
+      - ./roi_config.json:/opt/sitepulse-engine/roi_config.json:ro
+    depends_on:
+      - postgres
+      - minio
+
+  # ── Scheduler (sync + detection + analysis) ─────────
+  worker:
+    build: .
+    command: ["python", "-m", "app.worker.scheduler"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: admin
+      MINIO_SECRET_KEY: password123
+      MINIO_BUCKET_DEFAULT: tower-tl
+      ENABLE_DB: "true"
+      ENABLE_ROI: "true"
+      POSTGRES_DSN: postgresql://sitepulse:sitepulse@postgres:5432/sitepulse
+      DROPBOX_TOKEN: ${DROPBOX_TOKEN:-}
+    depends_on:
+      - postgres
+      - minio
+
+  # ── MinIO (S3-compatible storage) ────────────────────
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9090"
+    ports:
+      - "9001:9000"
+      - "9091:9090"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password123
+    volumes:
+      - minio_data:/data
+
+volumes:
+  pg_data:
+  minio_data:

@@ -1,0 +1,70 @@
+# ── Python ────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+pip-log.txt
+
+# ── Virtual environments ─────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── IDE / Editors ────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ── Environment / Secrets ────────────────────────────
+.env
+*.pem
+*.key
+
+# ── YOLO model weights (large, auto-downloaded) ─────
+*.pt
+*.onnx
+*.engine
+runs/
+
+# ── Ultralytics cache ───────────────────────────────
+.config/
+
+# ── OS artifacts ─────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# ── Docker local volumes ────────────────────────────
+pg_data/
+minio_data/
+
+# ── Test / Coverage ──────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# ── Mypy / type checkers ────────────────────────────
+.mypy_cache/
+.pytype/
+
+# ── Jupyter (if any) ────────────────────────────────
+.ipynb_checkpoints/
+
+# ── Logs ─────────────────────────────────────────────
+*.log
+logs/
