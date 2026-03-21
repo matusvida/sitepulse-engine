@@ -51,6 +51,9 @@ class Settings(BaseSettings):
 
     # ── Dropbox sync ─────────────────────────────────────
     dropbox_token: str = ""
+    dropbox_app_key: str = ""
+    dropbox_app_secret: str = ""
+    dropbox_refresh_token: str = ""
     sync_schedule_minutes: int = 60
 
     # ── Worker ──────────────────────────────────────────
@@ -59,6 +62,9 @@ class Settings(BaseSettings):
     # ── Scheduler / Analysis ────────────────────────────
     analysis_hour: int = 2
     min_detections_active_hour: int = 3
+
+    # ── CORS ─────────────────────────────────────────────
+    cors_origins: str = "http://localhost:3000"
 
     # ── Safety ──────────────────────────────────────────
     max_image_bytes: int = 50 * 1024 * 1024  # 50 MB

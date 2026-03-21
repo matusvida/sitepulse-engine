@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from sqlalchemy import text
 
@@ -52,3 +52,30 @@ def finish_sync_job(
                 "err": error, "fin": now, "jid": job_id,
             },
         )
+
+
+def get_latest_sync_job(project_id: int) -> Optional[Dict[str, Any]]:
+    """Fetch the most recent sync job for a project."""
+    engine = get_engine()
+    with engine.begin() as conn:
+        row = conn.execute(
+            text(
+                "SELECT id, project_id, status, images_found, images_synced, "
+                "error, started_at, finished_at "
+                "FROM sync_jobs WHERE project_id = :pid "
+                "ORDER BY started_at DESC LIMIT 1"
+            ),
+            {"pid": project_id},
+        ).fetchone()
+    if row is None:
+        return None
+    return {
+        "id": str(row[0]),
+        "projectId": str(row[1]),
+        "status": row[2],
+        "imagesFound": row[3],
+        "imagesSynced": row[4],
+        "error": row[5],
+        "startedAt": row[6].isoformat() if row[6] else None,
+        "finishedAt": row[7].isoformat() if row[7] else None,
+    }

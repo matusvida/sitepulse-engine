@@ -25,6 +25,7 @@ alembic>=1.14,<2
 
 # Dropbox sync
 dropbox>=12,<13
+requests>=2.31,<3
 
 # Scheduler
 apscheduler>=3.10,<4

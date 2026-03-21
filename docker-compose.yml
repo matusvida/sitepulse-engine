@@ -50,6 +50,9 @@ services:
       ENABLE_DB: "true"
       ENABLE_ROI: "true"
       POSTGRES_DSN: postgresql://sitepulse:sitepulse@postgres:5432/sitepulse
+      DROPBOX_APP_KEY: ${DROPBOX_APP_KEY:-}
+      DROPBOX_APP_SECRET: ${DROPBOX_APP_SECRET:-}
+      DROPBOX_REFRESH_TOKEN: ${DROPBOX_REFRESH_TOKEN:-}
       DROPBOX_TOKEN: ${DROPBOX_TOKEN:-}
     depends_on:
       - postgres

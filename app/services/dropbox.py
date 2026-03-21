@@ -36,14 +36,51 @@ _dbx: Optional[dropbox.Dropbox] = None
 
 
 def _get_client() -> dropbox.Dropbox:
+    """Build (or return cached) Dropbox client.
+
+    Prefers the long-lived **refresh token** flow (app_key + app_secret +
+    refresh_token).  The SDK auto-refreshes the short-lived access token
+    behind the scenes so the process never expires.
+
+    Falls back to a bare ``DROPBOX_TOKEN`` (short-lived, ~4 h) for quick
+    testing when the refresh-token credentials aren't configured yet.
+    """
     global _dbx
     if _dbx is not None:
         return _dbx
     cfg = get_settings()
-    if not cfg.dropbox_token:
-        raise DropboxSyncError("DROPBOX_TOKEN is not set")
-    _dbx = dropbox.Dropbox(cfg.dropbox_token, timeout=60)
+
+    if cfg.dropbox_refresh_token and cfg.dropbox_app_key and cfg.dropbox_app_secret:
+        logger.info("dropbox_client_init", mode="refresh_token")
+        _dbx = dropbox.Dropbox(
+            app_key=cfg.dropbox_app_key,
+            app_secret=cfg.dropbox_app_secret,
+            oauth2_refresh_token=cfg.dropbox_refresh_token,
+            timeout=60,
+        )
+    elif cfg.dropbox_token:
+        logger.warning(
+            "dropbox_client_init",
+            mode="short_lived_token",
+            hint="Set DROPBOX_APP_KEY, DROPBOX_APP_SECRET, and DROPBOX_REFRESH_TOKEN for auto-refresh",
+        )
+        _dbx = dropbox.Dropbox(cfg.dropbox_token, timeout=60)
+    else:
+        raise DropboxSyncError(
+            "No Dropbox credentials configured. "
+            "Set DROPBOX_REFRESH_TOKEN + DROPBOX_APP_KEY + DROPBOX_APP_SECRET, "
+            "or DROPBOX_TOKEN for short-lived access."
+        )
     return _dbx
+
+
+def reset_client() -> None:
+    """Force re-creation of the Dropbox client on next call.
+
+    Useful after updating credentials at runtime.
+    """
+    global _dbx
+    _dbx = None
 
 
 class DropboxSyncError(Exception):
