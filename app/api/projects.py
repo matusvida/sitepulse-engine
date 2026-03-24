@@ -6,11 +6,13 @@ matching the frontend TypeScript interfaces.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+import threading
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import structlog
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -26,6 +28,7 @@ from app.db.projects import (
     update_project,
 )
 from app.db.sync_jobs import get_latest_sync_job
+from app.services.visualize import visualize_detections
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api")
@@ -285,6 +288,104 @@ async def api_activity_heatmap(project_id: int):
         })
 
     return grid
+
+
+# ── Snapshots ─────────────────────────────────────────────────────────────────
+
+@router.get("/projects/{project_id}/snapshot/dates")
+async def api_snapshot_dates(project_id: int):
+    """List distinct dates that have at least one processed image."""
+    _ensure_project(project_id)
+    engine = get_engine()
+    with engine.begin() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT DISTINCT DATE(captured_at) AS d "
+                "FROM images "
+                "WHERE project_id = :pid AND status = 'DONE' AND captured_at IS NOT NULL "
+                "ORDER BY d DESC"
+            ),
+            {"pid": project_id},
+        ).fetchall()
+    return [str(r[0]) for r in rows]
+
+
+@router.get("/projects/{project_id}/snapshot")
+async def api_snapshot(project_id: int, date: str = Query(..., description="YYYY-MM-DD")):
+    """Return the image closest to midday for the given date.
+
+    Proxies the JPEG bytes from MinIO so the frontend can use this URL
+    directly as an ``<img src>``.
+    """
+    _ensure_project(project_id)
+    try:
+        target_date = __import__("datetime").date.fromisoformat(date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format, use YYYY-MM-DD")
+
+    midday = datetime(
+        target_date.year, target_date.month, target_date.day,
+        12, 0, 0, tzinfo=timezone.utc,
+    )
+
+    engine = get_engine()
+    with engine.begin() as conn:
+        row = conn.execute(
+            text(
+                "SELECT bucket, key FROM images "
+                "WHERE project_id = :pid "
+                "  AND status = 'DONE' "
+                "  AND captured_at >= :day_start "
+                "  AND captured_at < :day_end "
+                "ORDER BY ABS(EXTRACT(EPOCH FROM (captured_at - :midday))) ASC "
+                "LIMIT 1"
+            ),
+            {
+                "pid": project_id,
+                "day_start": f"{date}T00:00:00+00:00",
+                "day_end": f"{date}T23:59:59+00:00",
+                "midday": midday.isoformat(),
+            },
+        ).fetchone()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"No image found for {date}")
+
+    from app.services.storage import download_image_bytes, S3DownloadError
+    try:
+        data = download_image_bytes(row[0], row[1])
+    except S3DownloadError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    content_type = "image/jpeg"
+    if row[1].lower().endswith(".png"):
+        content_type = "image/png"
+
+    return Response(content=data, media_type=content_type)
+
+
+# ── Visualization ─────────────────────────────────────────────────────────────
+
+class VisualizeRequest(BaseModel):
+    dateFrom: str
+    dateTo: str
+
+
+@router.post("/projects/{project_id}/visualize")
+def visualize(project_id: int, body: VisualizeRequest):
+    """Draw detection bboxes on image copies and upload to MinIO under detection/ prefix."""
+    _ensure_project(project_id)
+    try:
+        d_from = date.fromisoformat(body.dateFrom)
+        d_to = date.fromisoformat(body.dateTo)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format, use YYYY-MM-DD")
+
+    if d_from > d_to:
+        raise HTTPException(status_code=400, detail="dateFrom must be <= dateTo")
+
+    result = visualize_detections(project_id, d_from, d_to)
+    return result
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
