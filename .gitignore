@@ -46,6 +46,7 @@ runs/
 Thumbs.db
 Desktop.ini
 ehthumbs.db
+5AhngnK-tJAAAAAAAAAAIKAcGaqzrrm46xl3n_Ps0YI
 
 # ── Docker local volumes ────────────────────────────
 pg_data/
@@ -68,3 +69,7 @@ htmlcov/
 # ── Logs ─────────────────────────────────────────────
 *.log
 logs/
+
+# ── HTTP client collections ──────────────────────────
+API.http
+*.http
