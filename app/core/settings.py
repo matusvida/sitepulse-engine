@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     analysis_hour: int = 2
     min_detections_active_hour: int = 3
 
+    # ── OpenAI ──────────────────────────────────────────
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o"
+
     # ── CORS ─────────────────────────────────────────────
     cors_origins: str = "http://localhost:3000"
 

@@ -33,6 +33,7 @@ services:
       DROPBOX_APP_SECRET: ${DROPBOX_APP_SECRET:-}
       DROPBOX_REFRESH_TOKEN: ${DROPBOX_REFRESH_TOKEN:-}
       DROPBOX_TOKEN: ${DROPBOX_TOKEN:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
       - ./roi_config.json:/opt/sitepulse-engine/roi_config.json:ro
     depends_on:
@@ -58,6 +59,7 @@ services:
       DROPBOX_APP_SECRET: ${DROPBOX_APP_SECRET:-}
       DROPBOX_REFRESH_TOKEN: ${DROPBOX_REFRESH_TOKEN:-}
       DROPBOX_TOKEN: ${DROPBOX_TOKEN:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     depends_on:
       - postgres
       - minio

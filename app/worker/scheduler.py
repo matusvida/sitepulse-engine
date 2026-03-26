@@ -57,6 +57,15 @@ def _run_analysis() -> None:
         logger.exception("scheduler_analysis_failed")
 
 
+def _run_plan_check() -> None:
+    logger.info("scheduler_plan_check_start")
+    try:
+        from app.services.plan_tracker import run_plan_check_all
+        run_plan_check_all()
+    except Exception:
+        logger.exception("scheduler_plan_check_failed")
+
+
 def main() -> None:
     cfg = get_settings()
     if not cfg.enable_db:
@@ -71,7 +80,7 @@ def main() -> None:
 
     scheduler = BlockingScheduler()
 
-    if cfg.dropbox_token:
+    if cfg.dropbox_token or cfg.dropbox_refresh_token:
         scheduler.add_job(
             _run_sync, "interval",
             minutes=cfg.sync_schedule_minutes,
@@ -97,6 +106,18 @@ def main() -> None:
         name="Nightly Analysis",
     )
     logger.info("scheduler_job_registered", job="nightly_analysis", hour=cfg.analysis_hour)
+
+    if cfg.openai_api_key:
+        scheduler.add_job(
+            _run_plan_check, "cron",
+            day_of_week="mon",
+            hour=cfg.analysis_hour + 1,
+            id="weekly_plan_check",
+            name="Weekly Plan Check",
+        )
+        logger.info("scheduler_job_registered", job="weekly_plan_check", day="mon", hour=cfg.analysis_hour + 1)
+    else:
+        logger.warning("scheduler_plan_check_skipped", reason="OPENAI_API_KEY not set")
 
     logger.info("scheduler_started")
     try:

@@ -131,3 +131,46 @@ sync_jobs = Table(
     Column("started_at", DateTime(timezone=True)),
     Column("finished_at", DateTime(timezone=True)),
 )
+
+construction_plans = Table(
+    "construction_plans",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("project_id", Integer, ForeignKey("projects.id"), nullable=False),
+    Column("filename", String(512)),
+    Column("raw_text", Text),
+    Column("status", String(32), nullable=False, server_default="processing"),
+    Column("created_at", DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    Column("updated_at", DateTime(timezone=True)),
+)
+
+plan_milestones = Table(
+    "plan_milestones",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("plan_id", Integer, ForeignKey("construction_plans.id", ondelete="CASCADE"), nullable=False),
+    Column("project_id", Integer, ForeignKey("projects.id"), nullable=False),
+    Column("week_number", Integer, nullable=False),
+    Column("title", String(512), nullable=False),
+    Column("description", Text),
+    Column("expected_state", Text),
+    Column("actual_state", Text),
+    Column("status", String(32), nullable=False, server_default="not_started"),
+    Column("checked_at", DateTime(timezone=True)),
+    Column("created_at", DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+)
+
+progress_reports = Table(
+    "progress_reports",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("project_id", Integer, ForeignKey("projects.id"), nullable=False),
+    Column("report_type", String(32), nullable=False, server_default="custom"),
+    Column("content_md", Text),
+    Column("summary", Text),
+    Column("date_range_start", Date),
+    Column("date_range_end", Date),
+    Column("image_count", Integer),
+    Column("model_used", String(128)),
+    Column("created_at", DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+)
