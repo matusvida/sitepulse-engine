@@ -200,9 +200,11 @@ def _get_rolling_avg_activity_index(project_id: int, before_week: date, n_weeks:
     with engine.begin() as conn:
         row = conn.execute(
             text(
-                "SELECT AVG(activity_index) FROM weekly_metrics "
-                "WHERE project_id = :pid AND week_start < :ws "
-                "ORDER BY week_start DESC LIMIT :n"
+                "SELECT AVG(activity_index) FROM ("
+                "  SELECT activity_index FROM weekly_metrics"
+                "  WHERE project_id = :pid AND week_start < :ws"
+                "  ORDER BY week_start DESC LIMIT :n"
+                ") sub"
             ),
             {"pid": project_id, "ws": before_week, "n": n_weeks},
         ).fetchone()
@@ -521,6 +523,35 @@ def _get_completed_weeks(project_id: int, since: date) -> List[date]:
     return [r[0] for r in rows if r[0] + timedelta(days=6) < today]
 
 
+def run_analysis_for_project(project_id: int, lookback_days: int = 7) -> Dict[str, Any]:
+    """Compute daily/weekly metrics and alerts for one project."""
+    logger.info("analysis_start", project_id=project_id, lookback_days=lookback_days)
+
+    dates = _get_dates_to_process(project_id, lookback_days=lookback_days)
+    days_processed = 0
+    for dt in dates:
+        if aggregate_daily(project_id, dt):
+            days_processed += 1
+
+    cutoff = date.today() - timedelta(days=lookback_days + 7)
+    weeks = _get_completed_weeks(project_id, since=cutoff)
+    weeks_processed = 0
+    for ws in weeks:
+        if rollup_week(project_id, ws):
+            weeks_processed += 1
+
+    generate_alerts(project_id)
+
+    result = {
+        "project_id": project_id,
+        "days_processed": days_processed,
+        "weeks_processed": weeks_processed,
+        "lookback_days": lookback_days,
+    }
+    logger.info("analysis_complete", **result)
+    return result
+
+
 def run_analysis() -> None:
     """Main entry point called by the scheduler nightly."""
     projects = list_projects()
@@ -528,30 +559,6 @@ def run_analysis() -> None:
         logger.info("analysis_skipped", reason="no projects")
         return
 
-    lookback = 7
-
     for project in projects:
         pid = int(project["id"])
-        logger.info("analysis_start", project_id=pid, project_name=project["name"])
-
-        dates = _get_dates_to_process(pid, lookback_days=lookback)
-        days_processed = 0
-        for dt in dates:
-            if aggregate_daily(pid, dt):
-                days_processed += 1
-
-        cutoff = date.today() - timedelta(days=lookback + 7)
-        weeks = _get_completed_weeks(pid, since=cutoff)
-        weeks_processed = 0
-        for ws in weeks:
-            if rollup_week(pid, ws):
-                weeks_processed += 1
-
-        generate_alerts(pid)
-
-        logger.info(
-            "analysis_complete",
-            project_id=pid,
-            days_processed=days_processed,
-            weeks_processed=weeks_processed,
-        )
+        run_analysis_for_project(pid)

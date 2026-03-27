@@ -192,6 +192,35 @@ async def api_weekly_metrics(project_id: int, weeks: int = Query(12, ge=1, le=52
     ]
 
 
+# ── Metrics: Generate ─────────────────────────────────────────────────────────
+
+class MetricsGenerateRequest(BaseModel):
+    lookbackDays: int = 30
+
+
+@router.post("/projects/{project_id}/metrics/generate", status_code=202)
+async def api_generate_metrics(project_id: int, body: MetricsGenerateRequest | None = None):
+    """Trigger daily aggregation, weekly rollup, and alert generation."""
+    _ensure_project(project_id)
+    lookback = body.lookbackDays if body else 30
+
+    from app.services.analysis import run_analysis_for_project
+    thread = threading.Thread(
+        target=run_analysis_for_project,
+        args=(project_id, lookback),
+        daemon=True,
+    )
+    thread.start()
+    logger.info("metrics_generate_triggered", project_id=project_id, lookback_days=lookback)
+
+    return {
+        "status": "accepted",
+        "message": f"Metrics generation started (lookback {lookback} days)",
+        "projectId": project_id,
+        "lookbackDays": lookback,
+    }
+
+
 # ── Alerts ───────────────────────────────────────────────────────────────────
 
 @router.get("/projects/{project_id}/alerts")
