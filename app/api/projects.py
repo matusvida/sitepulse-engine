@@ -361,7 +361,13 @@ async def api_snapshot(project_id: int, date: str = Query(..., description="YYYY
     if row[1].lower().endswith(".png"):
         content_type = "image/png"
 
-    return Response(content=data, media_type=content_type)
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "public, max-age=86400, immutable",
+        },
+    )
 
 
 # ── Visualization ─────────────────────────────────────────────────────────────
