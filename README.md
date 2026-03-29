@@ -1,166 +1,330 @@
-# sitepulse-engine — Construction Site Object Detection
+# sitepulse-engine
 
-YOLO-based object detection and analysis service for construction-site
-imagery.  Syncs images from Dropbox, runs inference via YOLOv8x, persists
-results to Postgres, and generates daily/weekly activity metrics and alerts.
+Backend for the SitePulse construction monitoring platform.
+
+The system is now split into:
+
+- `sitepulse-engine-http-api`: public HTTP contracts, request DTOs, response DTOs
+- `sitepulse-engine-app`: runnable Spring Boot application with business logic, persistence, schedulers, and integrations
+- `python-yolo`: internal Python service used only for YOLO inference
+
+Spring Boot is the public backend. Python is not a public API anymore.
 
 ## Architecture
 
-```
-Dropbox ──▶ Sync Service ──▶ MinIO ──▶ Detection Worker ──▶ Postgres
-                                                               │
-                                                     Nightly Analysis
-                                                               │
-                                                   daily_metrics / alerts
-                                                               │
-                                                        REST API ──▶ Frontend
+```text
+Dropbox
+  -> Spring sync pipeline
+  -> MinIO raw image storage
+  -> image registration in PostgreSQL
+  -> scheduled/manual detection
+  -> Python YOLO inference
+  -> detections + metrics + alerts in PostgreSQL
+  -> plan evaluation + AI reporting
+  -> REST API + Swagger from Spring Boot
 ```
 
-## Project layout
+## End-To-End Pipeline
 
-```
+### 1. Project Setup
+
+- a project is created in the Spring API
+- cameras are assigned to the project
+- each camera can define `keyPrefix`, ROI polygon, and `dropOutside`
+- the project stores the Dropbox source path used for ingestion
+
+### 2. Dropbox Sync
+
+Main code:
+
+- [SyncService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\sync\application\SyncService.java)
+- [SyncProjectExecutor.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\sync\application\SyncProjectExecutor.java)
+- [DropboxClientService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\integration\dropbox\DropboxClientService.java)
+- [StorageService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\integration\storage\StorageService.java)
+
+Flow:
+
+1. scheduler or user triggers project sync
+2. Spring lists Dropbox date folders and files
+3. each image is downloaded from Dropbox
+4. the image is uploaded into MinIO
+5. an `images` row is created in PostgreSQL with project, key, bucket, capture time, and status
+6. a `sync_jobs` row tracks the overall job status
+
+Dropbox is only the ingestion source. After sync, MinIO becomes the internal source of truth for image binaries.
+
+### 3. Detection
+
+Main code:
+
+- [DetectionService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\detection\application\DetectionService.java)
+- [YoloFeignClient.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\integration\yolo\YoloFeignClient.java)
+- [main.py](C:\workspace\learning\progress-tracker\sitepulse-engine\python-yolo\app\main.py)
+
+Flow:
+
+1. Spring claims `NEW` images from PostgreSQL
+2. Spring downloads the image bytes from MinIO
+3. Spring sends the image to the internal Python YOLO service through `/infer`
+4. Spring applies post-processing:
+   - confidence thresholds
+   - min box area
+   - ROI filtering
+   - image quality warnings
+5. Spring persists detections in PostgreSQL
+6. image status is updated to `DONE` or `FAILED`
+
+The Python service does only inference. All orchestration and persistence stay in Spring.
+
+### 4. Metrics And Alerts
+
+Main code:
+
+- [AnalysisService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\metrics\application\AnalysisService.java)
+- [AlertService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\alert\application\AlertService.java)
+
+Flow:
+
+1. Spring reads detections and processed images from PostgreSQL
+2. it computes daily and weekly metrics
+3. it derives activity summaries and risks
+4. it creates or resolves alerts
+
+### 5. Construction Plan Tracking
+
+Main code:
+
+- [PlanService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\plan\application\PlanService.java)
+- [PdfTextExtractor.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\integration\pdf\PdfTextExtractor.java)
+- [OpenAiService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\integration\openai\OpenAiService.java)
+
+Flow:
+
+1. user uploads a construction plan PDF
+2. Spring extracts text from the PDF
+3. OpenAI is used to parse milestones
+4. milestones are stored in PostgreSQL
+5. plan checks compare recent site images against expected progress
+6. delayed milestones can create schedule alerts
+
+### 6. Reporting
+
+Main code:
+
+- [ReportService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\report\application\ReportService.java)
+
+Flow:
+
+1. Spring loads selected images from MinIO
+2. Spring loads metrics and milestone context from PostgreSQL
+3. OpenAI generates Markdown report content
+4. the report is stored in PostgreSQL
+5. report summaries and details are exposed through the REST API
+
+### 7. Visualization
+
+Main code:
+
+- [VisualizationService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\visualization\application\VisualizationService.java)
+
+Flow:
+
+1. Spring loads original images from MinIO
+2. Spring loads persisted detections from PostgreSQL
+3. bounding boxes are rendered onto the image
+4. the generated visualization is uploaded back to MinIO under a derived key
+
+## Project Structure
+
+```text
 sitepulse-engine/
-├── app/
-│   ├── main.py                    # FastAPI factory + lifespan
-│   ├── __main__.py                # python -m app → uvicorn
-│   │
-│   ├── core/                      # Configuration & logging
-│   │   ├── settings.py            # Pydantic-settings (env vars)
-│   │   └── logging.py            # Shared structlog configuration
-│   │
-│   ├── db/                        # Database layer
-│   │   ├── engine.py              # Engine singleton + Alembic runner
-│   │   ├── tables.py             # All SQLAlchemy Table definitions
-│   │   ├── images.py             # Image CRUD & status transitions
-│   │   ├── detections.py         # Detection record inserts
-│   │   ├── projects.py           # Project + Camera CRUD
-│   │   ├── alerts.py             # Alert queries & auto-resolve
-│   │   └── sync_jobs.py          # Sync job tracking
-│   │
-│   ├── detection/                 # ML inference pipeline
-│   │   ├── model.py              # YOLO loading & inference
-│   │   ├── postprocess.py        # Confidence / area / ROI filtering
-│   │   ├── quality.py            # Blur & brightness heuristics
-│   │   └── schemas.py            # Pydantic request/response models
-│   │
-│   ├── api/                       # HTTP endpoints
-│   │   ├── __init__.py            # Router aggregation
-│   │   └── detect.py             # /detect, /health routes
-│   │
-│   ├── services/                  # External integrations & business logic
-│   │   ├── storage.py            # MinIO/S3 client (boto3)
-│   │   ├── dropbox.py            # Dropbox shared-link API client
-│   │   ├── sync.py               # Dropbox → MinIO → DB orchestrator
-│   │   └── analysis.py           # Daily/weekly aggregation + alerts
-│   │
-│   └── worker/                    # Background processing
-│       ├── processor.py           # Image detection processing
-│       └── scheduler.py          # APScheduler entry point
-│
-├── migrations/                    # Alembic schema migrations
-│   ├── env.py
-│   └── versions/
-│       └── 001_initial_schema.py
-│
-├── roi_config.json                # File-based ROI fallback
-├── alembic.ini
-├── requirements.txt
-├── Dockerfile
-├── docker-compose.yml
-├── .env.example
-└── .gitignore
+|-- pom.xml
+|-- Dockerfile
+|-- docker-compose.yml
+|-- sitepulse-engine-http-api/
+|   |-- pom.xml
+|   `-- src/main/java/com/sitepulse/engine/http/
+|       |-- detection/
+|       |   |-- api/
+|       |   `-- dto/
+|       |-- project/
+|       |   |-- api/
+|       |   `-- dto/
+|       |-- plan/
+|       |   |-- api/
+|       |   `-- dto/
+|       |-- report/
+|       |   |-- api/
+|       |   `-- dto/
+|       |-- alert/
+|       |   `-- dto/
+|       `-- common/
+|           `-- dto/
+|-- sitepulse-engine-app/
+|   |-- pom.xml
+|   `-- src/main/
+|       |-- java/com/sitepulse/engine/
+|       |   |-- config/
+|       |   |-- common/
+|       |   |-- project/
+|       |   |-- sync/
+|       |   |-- detection/
+|       |   |-- metrics/
+|       |   |-- alert/
+|       |   |-- plan/
+|       |   |-- report/
+|       |   |-- visualization/
+|       |   |-- integration/
+|       |   |-- scheduler/
+|       |   `-- root/
+|       `-- resources/
+|           |-- application.yml
+|           |-- application-development.yml
+|           `-- db/migration/
+|-- python-yolo/
+|   |-- Dockerfile
+|   |-- requirements.txt
+|   `-- app/
+|-- seed.sql
+|-- roi_config.json
+|-- http-api-rework-plan.md
+`-- ddd-refactor-plan.md
 ```
 
-## Quick start (local, no Docker)
+## Tech Stack
 
-```bash
-cd sitepulse-engine
-python -m venv .venv && .venv\Scripts\activate   # Windows
-# source .venv/bin/activate                       # Linux/Mac
+### Spring application
 
-pip install -r requirements.txt
-cp .env.example .env   # edit as needed
+- Java 25
+- Spring Boot
+- Spring Web
+- Spring Data JPA with Hibernate
+- Flyway
+- OpenFeign
+- springdoc OpenAPI / Swagger UI
+- PostgreSQL
+- MinIO
+- ShedLock
+- Lombok
 
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+### YOLO service
+
+- Python 3.12
+- FastAPI
+- Uvicorn
+- Ultralytics YOLO
+- OpenCV
+- NumPy
+
+## Running Locally
+
+### Option 1: Recommended for development
+
+Run infrastructure and YOLO in Docker, run Spring locally.
+
+1. Set Java 25.
+   ```powershell
+   $env:JAVA_HOME='C:\Users\matus\.jdks\openjdk-25.0.1'
+   $env:Path="$env:JAVA_HOME\bin;$env:Path"
+   ```
+2. Start infrastructure and YOLO.
+   ```powershell
+   docker compose up -d postgres minio python-yolo
+   ```
+3. Run Spring from the app module:
+   ```powershell
+   cd sitepulse-engine-app
+   mvn spring-boot:run "-Dspring-boot.run.profiles=development"
+   ```
+
+You can also run from the repo root:
+
+```powershell
+mvn -pl sitepulse-engine-app spring-boot:run "-Dspring-boot.run.profiles=development"
 ```
 
-## Quick start (Docker Compose)
+### Option 2: Full Docker Compose
 
-```bash
-cd sitepulse-engine
-cp .env.example .env
-
-# Brings up Postgres + MinIO + API + Worker
+```powershell
 docker compose up --build
-
-# API: http://localhost:8080
-# MinIO console: http://localhost:9091 (admin / password123)
 ```
 
-## API usage
+## Local Endpoints
 
-```bash
-# Health check
-curl http://localhost:8080/health
-
-# Detect objects (by key, using default bucket)
-curl -X POST http://localhost:8080/detect \
-  -H "Content-Type: application/json" \
-  -d '{"key": "2026-03-04/2026-03-04 11_32_04.jpg"}'
-
-# Detect objects (by S3 URL)
-curl -X POST http://localhost:8080/detect \
-  -H "Content-Type: application/json" \
-  -d '{"s3_url": "s3://tower-tl/2026-03-04/2026-03-04 11_32_04.jpg"}'
-```
-
-## Running the worker / scheduler
-
-The scheduler runs Dropbox sync, detection sweeps, and nightly analysis:
-
-```bash
-# Via Docker Compose (automatic)
-docker compose up --build
-
-# Standalone
-ENABLE_DB=true python -m app.worker.scheduler
-
-# Standalone detection worker (no scheduler)
-ENABLE_DB=true python -m app.worker.processor
-```
+- Spring API: `http://localhost:8080`
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+- Python YOLO health: `http://localhost:8000/health`
+- MinIO API: `http://localhost:9001`
+- MinIO console: `http://localhost:9091`
+- PostgreSQL: `localhost:5432`
 
 ## Configuration
 
-All settings via environment variables (see `.env.example`):
+Main Spring configuration files:
 
-| Variable | Default | Description |
-|---|---|---|
-| `MINIO_ENDPOINT` | `http://localhost:9000` | S3-compatible endpoint |
-| `MINIO_ACCESS_KEY` | `admin` | S3 access key |
-| `MINIO_SECRET_KEY` | `password123` | S3 secret key |
-| `MINIO_BUCKET_DEFAULT` | `tower-tl` | Default bucket |
-| `YOLO_MODEL_PATH` | `yolov8x.pt` | YOLO weights path/name |
-| `CONF_THRESHOLD` | `0.35` | Global confidence threshold |
-| `PER_CLASS_THRESHOLDS_JSON` | `{}` | Per-class threshold JSON |
-| `MIN_BOX_AREA` | `400` | Min detection area (px²) |
-| `ENABLE_ROI` | `false` | Enable file-based ROI filtering |
-| `ENABLE_DB` | `false` | Enable Postgres integration |
-| `POSTGRES_DSN` | `postgresql://sitepulse:sitepulse@…` | Postgres DSN |
-| `DROPBOX_TOKEN` | `` | Dropbox API access token |
-| `SYNC_SCHEDULE_MINUTES` | `60` | Dropbox sync interval |
-| `ANALYSIS_HOUR` | `2` | Nightly analysis hour (UTC) |
-| `MIN_DETECTIONS_ACTIVE_HOUR` | `3` | Min detections to count active hour |
-| `WORKER_POLL_INTERVAL` | `5` | Seconds between detection sweeps |
+- [application.yml](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\resources\application.yml)
+- [application-development.yml](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\resources\application-development.yml)
 
-## Database tables
+Important properties:
 
-| Table | Purpose |
-|---|---|
-| `projects` | Construction site projects |
-| `cameras` | Per-project cameras with ROI polygons |
-| `images` | Synced/detected image records |
-| `detections` | Individual YOLO detections |
-| `daily_metrics` | Aggregated daily activity stats |
-| `weekly_metrics` | Weekly rollups with risk levels |
-| `alerts` | Generated alerts (stall, anomaly, schedule risk) |
-| `sync_jobs` | Dropbox sync job tracking |
+- `POSTGRES_DSN`
+- `MINIO_ENDPOINT`
+- `MINIO_ACCESS_KEY`
+- `MINIO_SECRET_KEY`
+- `MINIO_BUCKET_DEFAULT`
+- `DROPBOX_TOKEN`
+- `DROPBOX_APP_KEY`
+- `DROPBOX_APP_SECRET`
+- `DROPBOX_REFRESH_TOKEN`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `PYTHON_YOLO_BASE_URL`
+- `SYNC_CRON`
+- `DETECTION_SWEEP_CRON`
+- `CORS_ORIGINS`
+
+Recommended local mode:
+
+- use the `development` Spring profile
+- point Spring to `localhost` services
+- keep the Docker profile using internal hostnames like `python-yolo:8000`
+
+## Database And Flyway
+
+Flyway is the only migration tool now.
+
+- migrations live in [db/migration](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\resources\db\migration)
+- empty database: Flyway runs the baseline migration
+- existing Python-era database: Flyway baselining adopts the schema and continues from there
+
+Going forward:
+
+- do not use Alembic
+- add new schema changes only as Flyway migrations such as `V2__...sql`, `V3__...sql`
+
+## API Design Notes
+
+- public REST contracts live in `sitepulse-engine-http-api`
+- Spring controllers in `sitepulse-engine-app` implement those contracts
+- project endpoints are under `/api/projects/...`
+- detection health and on-demand detection are served by Spring
+- the Python YOLO service is internal and should not be treated as a public backend
+
+## Development Notes
+
+- keep controllers thin
+- keep business logic in application/domain services, not in HTTP adapters
+- keep integration DTOs inside the app module
+- keep HTTP DTOs and API interfaces inside the HTTP API module
+- use enums instead of raw status strings where possible
+- prefer explicit result objects over `Map<String, Object>` in new code
+
+## Current Refactor Direction
+
+Two planning documents describe the intended architecture work:
+
+- [http-api-rework-plan.md](C:\workspace\learning\progress-tracker\sitepulse-engine\http-api-rework-plan.md)
+- [ddd-refactor-plan.md](C:\workspace\learning\progress-tracker\sitepulse-engine\ddd-refactor-plan.md)
+
+The current code is modularized at the HTTP boundary and is being prepared for a gradual DDD-lite refactor, starting with the `sync` context.

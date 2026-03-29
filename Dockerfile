@@ -1,20 +1,19 @@
-FROM python:3.12-slim
+FROM maven:3.9.9-eclipse-temurin-25 AS build
+WORKDIR /workspace
 
-# System deps for opencv-python-headless
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends libgl1 libglib2.0-0 && \
-    rm -rf /var/lib/apt/lists/*
+COPY pom.xml ./
+COPY sitepulse-engine-http-api/pom.xml sitepulse-engine-http-api/pom.xml
+COPY sitepulse-engine-app/pom.xml sitepulse-engine-app/pom.xml
+COPY sitepulse-engine-http-api/src sitepulse-engine-http-api/src
+COPY sitepulse-engine-app/src sitepulse-engine-app/src
 
+RUN mvn -q -pl sitepulse-engine-app -am -DskipTests package
+
+FROM eclipse-temurin:25-jre
 WORKDIR /opt/sitepulse-engine
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --from=build /workspace/sitepulse-engine-app/target/*.jar app.jar
 
-COPY . .
+EXPOSE 8080
 
-# Pre-download the default model weights at build time so first request is fast
-RUN python -c "from ultralytics import YOLO; YOLO('yolov8x.pt')"
-
-EXPOSE 8000
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["java", "-jar", "app.jar"]
