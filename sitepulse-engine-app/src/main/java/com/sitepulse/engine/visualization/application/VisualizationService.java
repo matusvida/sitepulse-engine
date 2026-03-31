@@ -6,7 +6,7 @@ import com.sitepulse.engine.detection.domain.ImageEntity;
 import com.sitepulse.engine.detection.persistence.DetectionRepository;
 import com.sitepulse.engine.detection.persistence.ImageRepository;
 import com.sitepulse.engine.integration.storage.StorageService;
-import com.sitepulse.engine.project.application.ProjectService;
+import com.sitepulse.engine.project.application.ProjectLookupService;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
@@ -32,20 +32,20 @@ public class VisualizationService {
             "bus", new Color(200, 0, 200)
     );
 
-    private final ProjectService projectService;
+    private final ProjectLookupService projectLookupService;
     private final ImageRepository imageRepository;
     private final DetectionRepository detectionRepository;
     private final StorageService storageService;
     private final JsonUtils jsonUtils;
 
     public VisualizationService(
-            ProjectService projectService,
+            ProjectLookupService projectLookupService,
             ImageRepository imageRepository,
             DetectionRepository detectionRepository,
             StorageService storageService,
             JsonUtils jsonUtils
     ) {
-        this.projectService = projectService;
+        this.projectLookupService = projectLookupService;
         this.imageRepository = imageRepository;
         this.detectionRepository = detectionRepository;
         this.storageService = storageService;
@@ -53,7 +53,7 @@ public class VisualizationService {
     }
 
     public Map<String, Object> visualize(Integer projectId, LocalDate dateFrom, LocalDate dateTo) {
-        projectService.requireProject(projectId);
+        projectLookupService.requireProject(projectId);
         List<ImageEntity> images = imageRepository.findDoneInRange(
                 projectId,
                 dateFrom.atStartOfDay().atOffset(ZoneOffset.UTC),

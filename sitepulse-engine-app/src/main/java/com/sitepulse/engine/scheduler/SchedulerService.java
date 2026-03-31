@@ -1,11 +1,9 @@
 package com.sitepulse.engine.scheduler;
 
 import com.sitepulse.engine.config.SitePulseProperties;
-import com.sitepulse.engine.detection.application.DetectionService;
-import com.sitepulse.engine.metrics.application.AnalysisService;
-import com.sitepulse.engine.plan.application.PlanService;
-import com.sitepulse.engine.project.persistence.ProjectRepository;
-import com.sitepulse.engine.sync.application.SyncService;
+import com.sitepulse.engine.detection.application.usecase.ProcessPendingImagesUseCase;
+import com.sitepulse.engine.metrics.application.usecase.RunScheduledAnalysisUseCase;
+import com.sitepulse.engine.sync.application.usecase.RunScheduledSyncUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
@@ -18,29 +16,28 @@ import org.springframework.stereotype.Component;
 public class SchedulerService {
 
     private final SitePulseProperties properties;
-    private final SyncService syncService;
-    private final DetectionService detectionService;
-    private final AnalysisService analysisService;
-    private final ProjectRepository projectRepository;
+    private final RunScheduledSyncUseCase runScheduledSyncUseCase;
+    private final ProcessPendingImagesUseCase processPendingImagesUseCase;
+    private final RunScheduledAnalysisUseCase runScheduledAnalysisUseCase;
 
     @Scheduled(cron = "${sitepulse.sync-cron}", zone = "UTC")
     @SchedulerLock(name = "dropboxSyncJob")
     public void runSync() {
         log.info("Running scheduled Dropbox sync");
-        syncService.syncAllProjects(projectRepository.findAll());
+        runScheduledSyncUseCase.run();
     }
 
     @Scheduled(cron = "${sitepulse.detection-sweep-cron}", zone = "UTC")
     @SchedulerLock(name = "detectionSweepJob")
     public void runDetectionSweep() {
         log.info("Running scheduled detection sweep");
-        detectionService.processNewImages(10);
+        processPendingImagesUseCase.process(10);
     }
 
     @Scheduled(cron = "0 0 ${sitepulse.analysis-hour} * * *", zone = "UTC")
     @SchedulerLock(name = "nightlyAnalysisJob")
     public void runAnalysis() {
         log.info("Running scheduled nightly analysis");
-        analysisService.runAnalysis();
+        runScheduledAnalysisUseCase.run();
     }
 }

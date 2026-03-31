@@ -1,5 +1,6 @@
 package com.sitepulse.engine.integration.storage;
 
+import com.sitepulse.engine.common.domain.port.ObjectStorage;
 import com.sitepulse.engine.common.web.ApiException;
 import com.sitepulse.engine.config.SitePulseProperties;
 import io.minio.GetObjectArgs;
@@ -19,7 +20,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @Slf4j
-public class StorageService {
+public class StorageService implements ObjectStorage {
 
     private final SitePulseProperties properties;
     private final MinioClient minioClient;
@@ -49,6 +50,7 @@ public class StorageService {
         }
     }
 
+    @Override
     public byte[] download(String bucket, String key) {
         log.debug("Downloading object from MinIO bucket={} key={}", bucket, key);
         try (InputStream inputStream = minioClient.getObject(GetObjectArgs.builder().bucket(bucket).object(key).build())) {
@@ -58,6 +60,7 @@ public class StorageService {
         }
     }
 
+    @Override
     public void upload(String bucket, String key, byte[] data, String contentType) {
         log.debug("Uploading object to MinIO bucket={} key={} bytes={} contentType={}", bucket, key, data.length, contentType);
         try {
@@ -75,6 +78,7 @@ public class StorageService {
         }
     }
 
+    @Override
     public boolean exists(String bucket, String key) {
         try {
             minioClient.statObject(StatObjectArgs.builder().bucket(bucket).object(key).build());
@@ -84,6 +88,7 @@ public class StorageService {
         }
     }
 
+    @Override
     public String defaultBucket() {
         return properties.minioBucketDefault();
     }
