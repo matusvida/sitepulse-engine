@@ -21,6 +21,8 @@ public class Alert {
     private final Integer projectId;
     private final String type;
     private final AlertSeverity severity;
+
+    @ToString.Include
     private AlertStatus status;
     private final String summary;
     private final String details;
@@ -56,17 +58,26 @@ public class Alert {
     }
 
     public void acknowledge(OffsetDateTime updatedAt) {
+        if (status != AlertStatus.OPEN) {
+            throw new IllegalStateException("Can only acknowledge OPEN alerts, current: " + status);
+        }
         status = AlertStatus.ACKNOWLEDGED;
         this.updatedAt = updatedAt;
     }
 
     public void resolve(OffsetDateTime updatedAt) {
+        if (status == AlertStatus.RESOLVED) {
+            throw new IllegalStateException("Alert is already resolved");
+        }
         status = AlertStatus.RESOLVED;
         this.updatedAt = updatedAt;
     }
 
-    public void updateStatus(AlertStatus status, OffsetDateTime updatedAt) {
-        this.status = status;
-        this.updatedAt = updatedAt;
+    public void updateStatus(AlertStatus newStatus, OffsetDateTime updatedAt) {
+        switch (newStatus) {
+            case ACKNOWLEDGED -> acknowledge(updatedAt);
+            case RESOLVED -> resolve(updatedAt);
+            default -> throw new IllegalArgumentException("Cannot transition to status: " + newStatus);
+        }
     }
 }

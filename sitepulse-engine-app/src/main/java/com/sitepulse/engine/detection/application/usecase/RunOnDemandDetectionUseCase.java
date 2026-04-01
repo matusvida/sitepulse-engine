@@ -4,6 +4,8 @@ import com.sitepulse.engine.common.domain.port.ObjectStorage;
 import com.sitepulse.engine.common.exception.ValidationException;
 import com.sitepulse.engine.config.SitePulseProperties;
 import com.sitepulse.engine.detection.application.command.RunOnDemandDetectionCommand;
+import com.sitepulse.engine.detection.application.result.DetectedObjectResult;
+import com.sitepulse.engine.detection.application.result.DetectionOutcomeResult;
 import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.detection.domain.model.DetectionInference;
 import com.sitepulse.engine.detection.domain.model.DetectionOutcome;
@@ -32,7 +34,7 @@ public class RunOnDemandDetectionUseCase {
     private final DetectionPostProcessor detectionPostProcessor;
     private final SitePulseProperties properties;
 
-    public DetectionOutcome run(RunOnDemandDetectionCommand command) {
+    public DetectionOutcomeResult run(RunOnDemandDetectionCommand command) {
         DetectionTarget target = resolveTarget(command);
         log.info("Running on-demand detection for bucket={} key={}", target.bucket(), target.key());
         byte[] imageBytes = objectStorage.download(target.bucket(), target.key());
@@ -58,7 +60,23 @@ public class RunOnDemandDetectionUseCase {
             );
             detectionRecordRepository.replaceDetections(image.getId(), target.projectId(), outcome.modelVersion(), outcome.detections());
         }
-        return outcome;
+        return toResult(outcome);
+    }
+
+    private DetectionOutcomeResult toResult(DetectionOutcome outcome) {
+        return new DetectionOutcomeResult(
+                outcome.modelVersion(),
+                outcome.bucket(),
+                outcome.key(),
+                outcome.imageWidth(),
+                outcome.imageHeight(),
+                outcome.inferenceMs(),
+                outcome.detections().stream()
+                        .map(d -> new DetectedObjectResult(d.classId(), d.className(), d.score(), d.bboxXyxy(), d.inRoi()))
+                        .toList(),
+                outcome.warnings(),
+                outcome.skipped()
+        );
     }
 
     private DetectionTarget resolveTarget(RunOnDemandDetectionCommand command) {

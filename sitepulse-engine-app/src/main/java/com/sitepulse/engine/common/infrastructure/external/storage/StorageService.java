@@ -133,6 +133,7 @@ public class StorageService implements ObjectStorage {
         return properties.minioBucketDefault();
     }
 
+    @Override
     public String presign(String bucket, String key) {
         try {
             return minioClient.getPresignedObjectUrl(

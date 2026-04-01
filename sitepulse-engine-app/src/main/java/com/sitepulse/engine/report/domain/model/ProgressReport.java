@@ -39,6 +39,12 @@ public class ProgressReport {
             String modelUsed,
             OffsetDateTime createdAt
     ) {
+        if (dateRangeStart != null && dateRangeEnd != null && dateRangeStart.isAfter(dateRangeEnd)) {
+            throw new IllegalArgumentException("dateRangeStart must not be after dateRangeEnd");
+        }
+        if (contentMd == null || contentMd.isBlank()) {
+            throw new IllegalArgumentException("Report content must not be blank");
+        }
         return new ProgressReport(null, projectId, reportType, contentMd, summary, dateRangeStart, dateRangeEnd, imageCount, modelUsed, createdAt);
     }
 

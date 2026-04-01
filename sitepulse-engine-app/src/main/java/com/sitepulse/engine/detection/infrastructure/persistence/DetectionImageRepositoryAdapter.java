@@ -26,6 +26,11 @@ public class DetectionImageRepositoryAdapter implements DetectionImageRepository
     }
 
     @Override
+    public boolean existsByBucketAndKey(String bucket, String key) {
+        return imageRepository.existsByBucketAndKey(bucket, key);
+    }
+
+    @Override
     @Transactional
     public DetectionImage save(DetectionImage image) {
         return toDomain(imageRepository.save(toEntity(image)));

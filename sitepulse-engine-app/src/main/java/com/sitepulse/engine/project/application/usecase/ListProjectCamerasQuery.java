@@ -1,8 +1,8 @@
 package com.sitepulse.engine.project.application.usecase;
 
-import com.sitepulse.engine.http.project.dto.CameraView;
 import com.sitepulse.engine.project.application.ProjectLookupService;
-import com.sitepulse.engine.project.domain.model.Camera;
+import com.sitepulse.engine.project.application.ProjectResultMapper;
+import com.sitepulse.engine.project.application.result.CameraResult;
 import com.sitepulse.engine.project.domain.port.CameraCatalogRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -14,21 +14,10 @@ public class ListProjectCamerasQuery {
 
     private final ProjectLookupService projectLookupService;
     private final CameraCatalogRepository cameraCatalogRepository;
+    private final ProjectResultMapper projectResultMapper;
 
-    public List<CameraView> get(Integer projectId) {
+    public List<CameraResult> get(Integer projectId) {
         projectLookupService.requireProject(projectId);
-        return cameraCatalogRepository.findByProjectId(projectId).stream().map(this::toView).toList();
-    }
-
-    private CameraView toView(Camera camera) {
-        return new CameraView(
-                camera.getId(),
-                camera.getProjectId(),
-                camera.getName(),
-                camera.getRoiPolygon(),
-                camera.getDropOutside(),
-                camera.getKeyPrefix(),
-                camera.getCreatedAt() == null ? null : camera.getCreatedAt().toString()
-        );
+        return cameraCatalogRepository.findByProjectId(projectId).stream().map(projectResultMapper::toResult).toList();
     }
 }

@@ -1,6 +1,6 @@
 package com.sitepulse.engine.detection.infrastructure.persistence;
 
-import com.sitepulse.engine.detection.domain.ImageStatus;
+import com.sitepulse.engine.detection.domain.model.ImageStatus;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;

@@ -4,7 +4,7 @@ import com.sitepulse.engine.common.util.JsonUtils;
 import com.sitepulse.engine.detection.domain.model.DetectedObject;
 import com.sitepulse.engine.detection.domain.model.StoredImage;
 import com.sitepulse.engine.detection.domain.port.ProcessedImageReadModel;
-import com.sitepulse.engine.detection.domain.ImageStatus;
+import com.sitepulse.engine.detection.domain.model.ImageStatus;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;

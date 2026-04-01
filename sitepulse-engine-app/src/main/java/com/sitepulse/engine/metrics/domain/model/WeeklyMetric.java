@@ -24,11 +24,11 @@ public class WeeklyMetric {
     private Double progressDelta;
     private Double activityIndex;
     private Double activeHours;
-    private String riskLevel;
+    private RiskLevel riskLevel;
     private final OffsetDateTime createdAt;
 
     public static WeeklyMetric create(Integer projectId, LocalDate weekStart, OffsetDateTime createdAt) {
-        return new WeeklyMetric(null, projectId, weekStart, 0.0, 0.0, 0.0, "Low", createdAt);
+        return new WeeklyMetric(null, projectId, weekStart, 0.0, 0.0, 0.0, RiskLevel.LOW, createdAt);
     }
 
     public static WeeklyMetric restore(
@@ -38,13 +38,13 @@ public class WeeklyMetric {
             Double progressDelta,
             Double activityIndex,
             Double activeHours,
-            String riskLevel,
+            RiskLevel riskLevel,
             OffsetDateTime createdAt
     ) {
         return new WeeklyMetric(id, projectId, weekStart, progressDelta, activityIndex, activeHours, riskLevel, createdAt);
     }
 
-    public void updateSummary(double progressDelta, double activityIndex, double activeHours, String riskLevel) {
+    public void updateSummary(double progressDelta, double activityIndex, double activeHours, RiskLevel riskLevel) {
         this.progressDelta = progressDelta;
         this.activityIndex = activityIndex;
         this.activeHours = activeHours;

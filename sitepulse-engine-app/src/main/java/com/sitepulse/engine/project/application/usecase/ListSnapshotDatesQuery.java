@@ -15,12 +15,11 @@ public class ListSnapshotDatesQuery {
     private final ProjectLookupService projectLookupService;
     private final ProcessedImageReadModel processedImageReadModel;
 
-    public List<String> list(Integer projectId) {
+    public List<LocalDate> list(Integer projectId) {
         projectLookupService.requireProject(projectId);
         return processedImageReadModel.findSnapshotCapturedAtValues(projectId).stream()
                 .map(instant -> instant.withOffsetSameInstant(ZoneOffset.UTC).toLocalDate())
                 .distinct()
-                .map(LocalDate::toString)
                 .toList();
     }
 }

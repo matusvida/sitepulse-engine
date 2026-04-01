@@ -1,5 +1,6 @@
 package com.sitepulse.engine.report.domain.event;
 
+import com.sitepulse.engine.common.domain.event.DomainEvent;
 import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -10,7 +11,7 @@ import lombok.ToString;
 @AllArgsConstructor
 @EqualsAndHashCode
 @ToString
-public class ProgressReportGeneratedEvent {
+public class ProgressReportGeneratedEvent implements DomainEvent {
 
     private final Integer reportId;
     private final Integer projectId;

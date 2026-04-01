@@ -21,7 +21,7 @@ public class ListWeeklyMetricsQuery {
                         row.getProgressDelta() == null ? 0.0 : row.getProgressDelta(),
                         row.getActivityIndex() == null ? 0.0 : row.getActivityIndex(),
                         row.getActiveHours() == null ? 0.0 : row.getActiveHours(),
-                        row.getRiskLevel() == null ? "Low" : row.getRiskLevel()
+                        row.getRiskLevel() == null ? "Low" : row.getRiskLevel().toPersistenceValue()
                 ))
                 .toList());
         Collections.reverse(results);

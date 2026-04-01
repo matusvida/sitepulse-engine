@@ -10,5 +10,7 @@ public interface DetectionImageRepository {
 
     Optional<DetectionImage> findById(Integer imageId);
 
+    boolean existsByBucketAndKey(String bucket, String key);
+
     DetectionImage save(DetectionImage image);
 }

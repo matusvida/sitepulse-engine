@@ -1,6 +1,6 @@
 package com.sitepulse.engine.metrics.infrastructure.persistence;
 
-import com.sitepulse.engine.detection.domain.ImageStatus;
+import com.sitepulse.engine.detection.domain.model.ImageStatus;
 import com.sitepulse.engine.metrics.domain.model.ActivityHeatmapPoint;
 import com.sitepulse.engine.metrics.domain.model.DetectionActivitySample;
 import com.sitepulse.engine.metrics.domain.port.DetectionMetricsReadModel;

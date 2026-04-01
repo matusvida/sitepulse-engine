@@ -1,11 +1,11 @@
 package com.sitepulse.engine.detection.web;
 
 import com.sitepulse.engine.detection.application.command.RunOnDemandDetectionCommand;
+import com.sitepulse.engine.detection.application.result.DetectedObjectResult;
+import com.sitepulse.engine.detection.application.result.DetectionHealthResult;
+import com.sitepulse.engine.detection.application.result.DetectionOutcomeResult;
 import com.sitepulse.engine.detection.application.usecase.GetDetectionHealthQuery;
 import com.sitepulse.engine.detection.application.usecase.RunOnDemandDetectionUseCase;
-import com.sitepulse.engine.detection.domain.model.DetectedObject;
-import com.sitepulse.engine.detection.domain.model.DetectionHealth;
-import com.sitepulse.engine.detection.domain.model.DetectionOutcome;
 import com.sitepulse.engine.http.detection.api.DetectionApi;
 import com.sitepulse.engine.http.detection.dto.DetectRequest;
 import com.sitepulse.engine.http.detection.dto.DetectResponse;
@@ -23,13 +23,13 @@ public class DetectionController implements DetectionApi {
 
     @Override
     public HealthResponse health() {
-        DetectionHealth detectionHealth = getDetectionHealthQuery.get();
-        return new HealthResponse(detectionHealth.status(), detectionHealth.modelLoaded(), detectionHealth.modelVersion());
+        DetectionHealthResult health = getDetectionHealthQuery.get();
+        return new HealthResponse(health.status(), health.modelLoaded(), health.modelVersion());
     }
 
     @Override
     public DetectResponse detect(DetectRequest request) {
-        DetectionOutcome outcome = runOnDemandDetectionUseCase.run(
+        DetectionOutcomeResult outcome = runOnDemandDetectionUseCase.run(
                 new RunOnDemandDetectionCommand(request.getBucket(), request.getKey(), request.getS3Url())
         );
         return new DetectResponse(
@@ -44,13 +44,7 @@ public class DetectionController implements DetectionApi {
         );
     }
 
-    private DetectionView toView(DetectedObject detectedObject) {
-        return new DetectionView(
-                detectedObject.classId(),
-                detectedObject.className(),
-                detectedObject.score(),
-                detectedObject.bboxXyxy(),
-                detectedObject.inRoi()
-        );
+    private DetectionView toView(DetectedObjectResult d) {
+        return new DetectionView(d.classId(), d.className(), d.score(), d.bboxXyxy(), d.inRoi());
     }
 }

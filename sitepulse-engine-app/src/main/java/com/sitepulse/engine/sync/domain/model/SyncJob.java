@@ -8,12 +8,17 @@ import lombok.Getter;
 import lombok.ToString;
 
 @Getter
-@ToString
-@EqualsAndHashCode
+@ToString(onlyExplicitlyIncluded = true)
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class SyncJob {
 
+    @EqualsAndHashCode.Include
+    @ToString.Include
     private final Integer id;
+
     private final Integer projectId;
+
+    @ToString.Include
     private SyncJobStatus status;
     private int imagesFound;
     private int imagesSynced;
@@ -63,10 +68,12 @@ public class SyncJob {
     }
 
     public void recordDiscoveredImage() {
+        requireRunning();
         imagesFound++;
     }
 
     public void recordImportedImage() {
+        requireRunning();
         imagesSynced++;
     }
 
@@ -75,11 +82,17 @@ public class SyncJob {
     }
 
     public void recordFatalFailure(String message) {
+        if (status == SyncJobStatus.DONE) {
+            throw new IllegalStateException("Cannot record fatal failure on a completed sync job");
+        }
         errors.add(message);
         status = SyncJobStatus.FAILED;
     }
 
     public void finish(OffsetDateTime finishedAt) {
+        if (status == SyncJobStatus.DONE) {
+            throw new IllegalStateException("Sync job is already finished");
+        }
         this.finishedAt = finishedAt;
         if (status != SyncJobStatus.FAILED) {
             status = imagesFound == 0 && !errors.isEmpty() ? SyncJobStatus.FAILED : SyncJobStatus.DONE;
@@ -88,5 +101,11 @@ public class SyncJob {
 
     public String errorSummary() {
         return errors.isEmpty() ? null : String.join("; ", errors);
+    }
+
+    private void requireRunning() {
+        if (status != SyncJobStatus.RUNNING) {
+            throw new IllegalStateException("Sync job is not in RUNNING state, current: " + status);
+        }
     }
 }

@@ -20,6 +20,8 @@ public class ConstructionPlan {
     private final Integer projectId;
     private final String filename;
     private final String rawText;
+
+    @ToString.Include
     private PlanStatus status;
     private final OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
@@ -41,7 +43,18 @@ public class ConstructionPlan {
     }
 
     public void markReady(OffsetDateTime updatedAt) {
+        if (status != PlanStatus.PROCESSING) {
+            throw new IllegalStateException("Can only mark plan ready from PROCESSING state, current: " + status);
+        }
         this.status = PlanStatus.READY;
+        this.updatedAt = updatedAt;
+    }
+
+    public void markFailed(OffsetDateTime updatedAt) {
+        if (status != PlanStatus.PROCESSING) {
+            throw new IllegalStateException("Can only mark plan failed from PROCESSING state, current: " + status);
+        }
+        this.status = PlanStatus.FAILED;
         this.updatedAt = updatedAt;
     }
 }
