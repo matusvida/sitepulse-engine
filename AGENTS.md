@@ -1,137 +1,160 @@
-# SitePulse Engine — Agent Guidelines
+# SitePulse Engine - Agent Guidelines
 
 ## Project Overview
 
-Python/FastAPI backend for a construction site monitoring platform. Syncs timelapse photos from Dropbox, stores them in MinIO (S3-compatible), runs YOLOv8x object detection, computes daily/weekly activity metrics, generates AI progress reports via GPT-4o Vision, and tracks construction plans against milestones.
+Spring Boot backend for a construction site monitoring platform. The Java application serves the public REST API, owns business logic, database operations, scheduled jobs, and third-party integrations. Python remains only as a small internal YOLO inference service in `python-yolo`.
 
 ## Tech Stack
 
-- Python 3.11+, FastAPI, Uvicorn
-- Pydantic v2 + pydantic-settings for configuration
-- SQLAlchemy 2.0 Core (not ORM), psycopg2, Alembic for migrations
-- Ultralytics YOLOv8x, OpenCV (headless), NumPy, Pillow
-- boto3 for MinIO/S3
-- OpenAI SDK (GPT-4o / GPT-4o Vision)
-- pdfplumber for PDF text extraction
-- APScheduler 3.x for cron jobs
-- Dropbox SDK for cloud sync
-- structlog for structured JSON logging
-- Docker + Docker Compose for deployment
+- Java 25
+- Spring Boot
+- Spring Web
+- Spring Data JPA with Hibernate
+- Flyway for schema migrations
+- OpenFeign for third-party and internal HTTP integrations
+- Lombok
+- springdoc OpenAPI / Swagger UI
+- PostgreSQL
+- MinIO / S3-compatible storage
+- Python FastAPI + Ultralytics YOLO for image recognition only
+- Docker + Docker Compose
 
 ## Architecture
 
-The system runs as two processes sharing the same codebase:
+The system is split into two applications:
 
-1. **API** (`app.main:app`) — FastAPI server on port 8000 (exposed as 8080). Handles HTTP requests, serves images, triggers sync/detection.
-2. **Worker** (`app.worker.scheduler`) — APScheduler process running cron jobs for Dropbox sync, detection sweeps, nightly analysis, and weekly plan checks.
-
-Both share the same database, MinIO instance, and configuration.
+1. **Spring Boot app** at the repository root
+   - public REST API
+   - business logic
+   - database access
+   - schedulers
+   - integrations with Dropbox, OpenAI, MinIO, PDF parsing, and the YOLO service
+2. **Python YOLO service** in `python-yolo/`
+   - private inference endpoint only
+   - no public business API
+   - no database ownership
 
 ## File Layout
 
-```
-app/
-  main.py              # FastAPI app factory, lifespan, CORS
-  __main__.py           # uvicorn entrypoint
-  core/
-    settings.py         # Pydantic settings (env vars). Single source of truth for config.
-    logging.py          # structlog configuration
-  api/
-    __init__.py         # Router aggregation — all sub-routers combined here
-    detect.py           # POST /detect, GET /health
-    projects.py         # /api/projects/* (CRUD, metrics, alerts, sync, snapshots, heatmap, visualize)
-    plans.py            # /api/projects/{id}/plan/* (PDF upload, milestones, progress check)
-    reports.py           # /api/projects/{id}/reports/* (generate, list, detail)
-  db/
-    engine.py           # SQLAlchemy engine singleton, Alembic runner
-    tables.py           # All table definitions (single source of truth for schema)
-    images.py           # Image CRUD queries
-    detections.py       # Detection CRUD queries
-    projects.py         # Project/camera queries
-    alerts.py           # Alert queries
-    sync_jobs.py        # Sync job tracking queries
-  detection/
-    model.py            # YOLO model loader (singleton)
-    postprocess.py      # Confidence filtering, ROI polygon, min-area filtering
-    quality.py          # Blur/brightness quality checks
-    schemas.py          # Pydantic response schemas for /detect
-  services/
-    storage.py          # MinIO/S3 client wrapper (upload, download, list, presign)
-    sync.py             # Dropbox → MinIO sync pipeline
-    dropbox.py          # Dropbox API client with refresh token support
-    analysis.py         # Nightly analysis: daily/weekly metrics, alert generation
-    llm.py              # OpenAI GPT-4o wrapper (parse_plan, generate_report, evaluate_milestone)
-    pdf_parser.py       # PDF text extraction via pdfplumber
-    plan_tracker.py     # Weekly plan check: milestone evaluation + schedule alerts
-    visualize.py        # Draw bounding boxes on images and upload to MinIO
-  worker/
-    scheduler.py        # APScheduler main loop (Dropbox sync, detection sweep, nightly, plan check)
-    processor.py        # Picks NEW images, runs YOLO, persists detections
-  scripts/
-    dropbox_auth.py     # Helper to obtain Dropbox refresh token
-migrations/
-  versions/             # Alembic migration scripts (001 = initial, 002 = plans + reports)
-  env.py
-  alembic.ini
-docker-compose.yml      # postgres, api, worker, minio
+```text
+src/
+  main/
+    java/com/sitepulse/engine/
+      config/             # Spring config and properties
+      common/             # shared exceptions and utilities
+      root/               # root endpoints
+      project/            # projects and cameras
+      detection/          # detection orchestration and API
+      metrics/            # daily and weekly metrics
+      alert/              # alerts
+      sync/               # Dropbox sync jobs
+      plan/               # plans and milestones
+      report/             # report generation
+      visualization/      # image visualization
+      integration/        # MinIO, Dropbox, OpenAI, YOLO, PDF
+      scheduler/          # scheduled jobs
+    resources/
+      application.yml
+      db/migration/       # Flyway migrations
+python-yolo/
+  app/main.py             # internal YOLO API
+docker-compose.yml
 Dockerfile
-requirements.txt
+pom.xml
 ```
 
 ## Database
 
-PostgreSQL 16. Tables defined in `app/db/tables.py` using SQLAlchemy Core `Table` objects — no ORM models. All queries use raw `sqlalchemy.text()` or Core `select`/`insert`/`update` constructs.
+PostgreSQL is owned by the Spring Boot application.
 
-**Tables:** `projects`, `cameras`, `images`, `detections`, `daily_metrics`, `weekly_metrics`, `alerts`, `sync_jobs`, `construction_plans`, `plan_milestones`, `progress_reports`.
+- Use JPA entities and Spring Data repositories
+- Use Flyway as the only migration tool
+- Baseline support is enabled so pre-existing Python-era databases can be adopted safely
+- Add every future schema change as a new file in `src/main/resources/db/migration`
 
-Migrations are in `migrations/versions/`. Run automatically on startup when `ENABLE_DB=true` (via `run_migrations()` in lifespan).
+Relevant tables include:
+
+- `projects`
+- `cameras`
+- `images`
+- `detections`
+- `daily_metrics`
+- `weekly_metrics`
+- `alerts`
+- `sync_jobs`
+- `construction_plans`
+- `plan_milestones`
+- `progress_reports`
 
 ## Configuration
 
-All config is in `app/core/settings.py` via `pydantic-settings`. Every field maps to an environment variable (e.g., `minio_endpoint` → `MINIO_ENDPOINT`). Supports `.env` files.
+Primary configuration lives in Spring Boot `application.yml` plus environment variables.
 
-Key variables: `MINIO_ENDPOINT`, `MINIO_BUCKET_DEFAULT`, `POSTGRES_DSN`, `ENABLE_DB`, `ENABLE_ROI`, `DROPBOX_REFRESH_TOKEN`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `CORS_ORIGINS`.
+Important variables:
 
-Access settings anywhere via `from app.core import get_settings; cfg = get_settings()`.
+- `POSTGRES_DSN`
+- `MINIO_ENDPOINT`
+- `MINIO_ACCESS_KEY`
+- `MINIO_SECRET_KEY`
+- `MINIO_BUCKET_DEFAULT`
+- `DROPBOX_TOKEN`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `YOLO_MODEL_PATH`
+- `PYTHON_YOLO_BASE_URL`
+- `CORS_ORIGINS`
+
+The Python service should keep only inference-related configuration.
 
 ## API Design
 
-- All project-scoped endpoints are under `/api/projects/{project_id}/...`
-- The `/detect` and `/health` endpoints are at the root level
-- Responses use **camelCase** JSON keys (FastAPI `response_model` with Pydantic `alias_generator`)
-- Image endpoints (`/snapshot`, `/visualize`) return raw bytes with `Content-Type: image/jpeg`
-- File uploads use `multipart/form-data` (requires `python-multipart`)
+- Public API belongs to Spring Boot
+- Use controllers only for HTTP mapping and validation
+- Put business logic into application services
+- Keep package structure feature-oriented
+- Swagger/OpenAPI must stay enabled
+- Prefer DTOs for request and response boundaries
 
 ## Key Conventions
 
-- Use SQLAlchemy Core, not ORM. Queries go in `app/db/` modules. Do not put raw SQL in API routes.
-- Services in `app/services/` contain business logic. API routes should be thin — validate input, call a service, return response.
-- The YOLO model is loaded once at startup via `load_model()` and accessed as a module-level singleton in `detection/model.py`.
-- MinIO client is a module-level singleton in `services/storage.py`.
-- Logging uses `structlog` — always use `logger.info("event_name", key=value)` pattern, never f-strings in log messages.
-- ROI polygons are stored as JSONB arrays of `[x, y]` pairs in the `cameras` table. Filtering uses Shapely-like point-in-polygon via `cv2.pointPolygonTest`.
+- Use feature-based packaging under `com.sitepulse.engine`
+- Keep code readable and maintainable first
+- Use Hibernate/JPA for persistence, not raw SQL scattered through controllers
+- Use Feign clients for external HTTP integrations
+- Use Lombok, but on entities keep `@ToString` and `@EqualsAndHashCode` limited to relevant fields only
+- Keep the YOLO service narrow: inference in, detections out
+- Keep Spring controllers thin
 
 ## Adding New Features
 
-1. **New table** — define in `app/db/tables.py`, create a migration in `migrations/versions/`, add query helpers in `app/db/`.
-2. **New endpoint** — add to existing router in `app/api/` or create a new router and register it in `app/api/__init__.py`.
-3. **New service** — add to `app/services/`. Import in the endpoint or worker that needs it.
-4. **New scheduled job** — add to `app/worker/scheduler.py` following the existing pattern.
-5. **New dependency** — add to `requirements.txt` with version bounds. Rebuild Docker image.
+1. **New table or schema change** - add a Flyway migration and update the relevant entity and repository
+2. **New endpoint** - add a controller and delegate logic to a service
+3. **New integration** - add a client in `integration/`, prefer Feign where appropriate
+4. **New scheduled job** - add it in the Spring scheduling layer
+5. **YOLO-related change** - keep it in `python-yolo` unless it belongs to orchestration rather than inference
 
 ## Do Not
 
-- Do not use SQLAlchemy ORM (Session, mapped classes). Stick to Core.
-- Do not put business logic directly in API route handlers — extract to services.
-- Do not hardcode bucket names or paths — use `cfg.minio_bucket_default` and project/camera `key_prefix`.
-- Do not create synchronous blocking calls in async endpoints — use `asyncio.to_thread()` for CPU-bound work if needed.
-- Do not store secrets in code or `docker-compose.yml` — use `.env` files or environment variables.
-- Do not modify the `metadata` object outside of `app/db/tables.py`.
+- Do not reintroduce the old FastAPI backend as the main application
+- Do not use Alembic for schema management
+- Do not put business logic directly in controllers
+- Do not let Python own database or public API behavior again
+- Do not hardcode secrets or environment-specific endpoints
+- Do not broaden the Python service beyond YOLO inference without a strong reason
 
 ## Running Locally
 
-```bash
-docker compose up -d --build
+```powershell
+docker compose up -d postgres minio python-yolo
+$env:JAVA_HOME='C:\Users\matus\.jdks\openjdk-25.0.1'
+$env:Path="$env:JAVA_HOME\bin;$env:Path"
+mvn spring-boot:run
 ```
 
-Services: API at `localhost:8080`, MinIO console at `localhost:9091`, Postgres at `localhost:5432`.
+Services:
+
+- Spring API at `localhost:8080`
+- Swagger UI at `localhost:8080/swagger-ui.html`
+- MinIO console at `localhost:9091`
+- PostgreSQL at `localhost:5432`
+- Python YOLO at `localhost:8000`

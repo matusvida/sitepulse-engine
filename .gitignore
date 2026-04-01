@@ -1,75 +1,98 @@
-# ── Python ────────────────────────────────────────────
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 *.egg
 *.egg-info/
+.eggs/
 dist/
 build/
-.eggs/
-*.whl
+site/
 pip-log.txt
+pip-wheel-metadata/
 
-# ── Virtual environments ─────────────────────────────
+# Python virtual environments and tooling
 .venv/
 venv/
 env/
 ENV/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.pytype/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.ipynb_checkpoints/
 
-# ── IDE / Editors ────────────────────────────────────
+# Java / Maven / Spring Boot
+target/
+**/target/
+.mvn/wrapper/maven-wrapper.jar
+dependency-reduced-pom.xml
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+
+# Local Maven cache used in this repo
+.m2/
+
+# IDE / editors
 .idea/
 .vscode/
-*.swp
-*.swo
-*~
+*.iml
+*.ipr
+*.iws
 .project
 .classpath
 .settings/
+.factorypath
+.apt_generated/
+.apt_generated_tests/
+out/
+bin/
+*.swp
+*.swo
+*~
 
-# ── Environment / Secrets ────────────────────────────
+# Environment / secrets
 .env
+.env.*
+!.env.example
 *.pem
 *.key
+*.p12
+*.jks
+*.keystore
 
-# ── YOLO model weights (large, auto-downloaded) ─────
+# Logs
+*.log
+logs/
+log/
+
+# YOLO models and runtime outputs
 *.pt
 *.onnx
 *.engine
 runs/
-
-# ── Ultralytics cache ───────────────────────────────
 .config/
 
-# ── OS artifacts ─────────────────────────────────────
+# Docker / local runtime data
+pg_data/
+minio_data/
+
+# OS artifacts
 .DS_Store
 Thumbs.db
 Desktop.ini
 ehthumbs.db
-5AhngnK-tJAAAAAAAAAAIKAcGaqzrrm46xl3n_Ps0YI
 
-# ── Docker local volumes ────────────────────────────
-pg_data/
-minio_data/
-
-# ── Test / Coverage ──────────────────────────────────
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.nox/
-
-# ── Mypy / type checkers ────────────────────────────
-.mypy_cache/
-.pytype/
-
-# ── Jupyter (if any) ────────────────────────────────
-.ipynb_checkpoints/
-
-# ── Logs ─────────────────────────────────────────────
-*.log
-logs/
-
-# ── HTTP client collections ──────────────────────────
-API.http
+# HTTP client scratch files
 *.http

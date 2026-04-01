@@ -1,5 +1,4 @@
 services:
-  # ── Postgres (optional – for the worker) ─────────────
   postgres:
     image: postgres:16-alpine
     ports:
@@ -11,60 +10,6 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
 
-  # ── Detection API ────────────────────────────────────
-  api:
-    build: .
-    ports:
-      - "8080:8000"
-    env_file:
-      - path: .env
-        required: false
-    environment:
-      # Point at the HOST MinIO via the special Docker DNS name.
-      # On Docker Desktop (Win/Mac) host.docker.internal resolves to the host.
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: admin
-      MINIO_SECRET_KEY: password123
-      MINIO_BUCKET_DEFAULT: tower-tl
-      ENABLE_DB: "true"
-      ENABLE_ROI: "true"
-      POSTGRES_DSN: postgresql://sitepulse:sitepulse@postgres:5432/sitepulse
-      DROPBOX_APP_KEY: ${DROPBOX_APP_KEY:-}
-      DROPBOX_APP_SECRET: ${DROPBOX_APP_SECRET:-}
-      DROPBOX_REFRESH_TOKEN: ${DROPBOX_REFRESH_TOKEN:-}
-      DROPBOX_TOKEN: ${DROPBOX_TOKEN:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-    volumes:
-      - ./roi_config.json:/opt/sitepulse-engine/roi_config.json:ro
-    depends_on:
-      - postgres
-      - minio
-
-  # ── Scheduler (sync + detection + analysis) ─────────
-  worker:
-    build: .
-    command: ["python", "-m", "app.worker.scheduler"]
-    env_file:
-      - path: .env
-        required: false
-    environment:
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: admin
-      MINIO_SECRET_KEY: password123
-      MINIO_BUCKET_DEFAULT: tower-tl
-      ENABLE_DB: "true"
-      ENABLE_ROI: "true"
-      POSTGRES_DSN: postgresql://sitepulse:sitepulse@postgres:5432/sitepulse
-      DROPBOX_APP_KEY: ${DROPBOX_APP_KEY:-}
-      DROPBOX_APP_SECRET: ${DROPBOX_APP_SECRET:-}
-      DROPBOX_REFRESH_TOKEN: ${DROPBOX_REFRESH_TOKEN:-}
-      DROPBOX_TOKEN: ${DROPBOX_TOKEN:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-    depends_on:
-      - postgres
-      - minio
-
-  # ── MinIO (S3-compatible storage) ────────────────────
   minio:
     image: minio/minio:latest
     command: server /data --console-address ":9090"
@@ -76,6 +21,43 @@ services:
       MINIO_ROOT_PASSWORD: password123
     volumes:
       - minio_data:/data
+
+  python-yolo:
+    build:
+      context: ./python-yolo
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      YOLO_MODEL_PATH: ${YOLO_MODEL_PATH:-yolov8x.pt}
+
+  spring-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: admin
+      MINIO_SECRET_KEY: password123
+      MINIO_BUCKET_DEFAULT: tower-tl
+      ENABLE_ROI: "true"
+      POSTGRES_DSN: postgresql://sitepulse:sitepulse@postgres:5432/sitepulse
+      DROPBOX_APP_KEY: ${DROPBOX_APP_KEY:-}
+      DROPBOX_APP_SECRET: ${DROPBOX_APP_SECRET:-}
+      DROPBOX_REFRESH_TOKEN: ${DROPBOX_REFRESH_TOKEN:-}
+      DROPBOX_TOKEN: ${DROPBOX_TOKEN:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      PYTHON_YOLO_BASE_URL: http://python-yolo:8000
+      SERVER_PORT: 8080
+    depends_on:
+      - postgres
+      - minio
+      - python-yolo
 
 volumes:
   pg_data:

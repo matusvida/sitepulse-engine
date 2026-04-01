@@ -1,0 +1,85 @@
+spring:
+  application:
+    name: sitepulse-spring-app
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: "python-schema-baseline"
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+  jackson:
+    property-naming-strategy: LOWER_CAMEL_CASE
+    default-property-inclusion: non_null
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+sitepulse:
+  postgres-dsn: ${POSTGRES_DSN:postgresql://sitepulse:sitepulse@localhost:5432/sitepulse}
+  cors-origins: ${CORS_ORIGINS:http://localhost:3000}
+  minio-endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  minio-access-key: ${MINIO_ACCESS_KEY:admin}
+  minio-secret-key: ${MINIO_SECRET_KEY:password123}
+  minio-bucket-default: ${MINIO_BUCKET_DEFAULT:tower-tl}
+  yolo-model-path: ${YOLO_MODEL_PATH:yolov8x.pt}
+  conf-threshold: ${CONF_THRESHOLD:0.35}
+  per-class-thresholds-json: ${PER_CLASS_THRESHOLDS_JSON:{}}
+  min-box-area: ${MIN_BOX_AREA:400}
+  enable-roi: ${ENABLE_ROI:false}
+  roi-config-path: ${ROI_CONFIG_PATH:roi_config.json}
+  blur-threshold: ${BLUR_THRESHOLD:50}
+  brightness-low: ${BRIGHTNESS_LOW:30}
+  brightness-high: ${BRIGHTNESS_HIGH:240}
+  skip-bad-quality: ${SKIP_BAD_QUALITY:false}
+  sync-cron: ${SYNC_CRON:0 0/10 * * * *}
+  detection-sweep-cron: ${DETECTION_SWEEP_CRON:0 5/10 * * * *}
+  analysis-hour: ${ANALYSIS_HOUR:2}
+  min-detections-active-hour: ${MIN_DETECTIONS_ACTIVE_HOUR:3}
+  dropbox-token: ${DROPBOX_TOKEN:}
+  dropbox-app-key: ${DROPBOX_APP_KEY:}
+  dropbox-app-secret: ${DROPBOX_APP_SECRET:}
+  dropbox-refresh-token: ${DROPBOX_REFRESH_TOKEN:}
+  openai-api-key: ${OPENAI_API_KEY:}
+  openai-model: ${OPENAI_MODEL:gpt-4o}
+  max-image-bytes: ${MAX_IMAGE_BYTES:52428800}
+  python-yolo-base-url: ${PYTHON_YOLO_BASE_URL:http://python-yolo:8000}
+
+logging:
+  level:
+    root: INFO
+    com.sitepulse.engine: INFO
