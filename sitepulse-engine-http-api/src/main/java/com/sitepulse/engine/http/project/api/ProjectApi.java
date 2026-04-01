@@ -3,7 +3,10 @@ package com.sitepulse.engine.http.project.api;
 import com.sitepulse.engine.http.alert.dto.AlertStatusUpdateRequest;
 import com.sitepulse.engine.http.alert.dto.AlertView;
 import com.sitepulse.engine.http.common.dto.ActionResponse;
+import com.sitepulse.engine.http.metrics.dto.ActivityHeatmapPointView;
+import com.sitepulse.engine.http.metrics.dto.DailyMetricView;
 import com.sitepulse.engine.http.metrics.dto.MetricsGenerateRequest;
+import com.sitepulse.engine.http.metrics.dto.WeeklyMetricView;
 import com.sitepulse.engine.http.project.dto.CameraCreateRequest;
 import com.sitepulse.engine.http.project.dto.CameraUpdateRequest;
 import com.sitepulse.engine.http.project.dto.CameraView;
@@ -12,12 +15,12 @@ import com.sitepulse.engine.http.project.dto.ProjectUpdateRequest;
 import com.sitepulse.engine.http.project.dto.ProjectView;
 import com.sitepulse.engine.http.project.dto.SyncStatusView;
 import com.sitepulse.engine.http.visualization.dto.VisualizeRequest;
+import com.sitepulse.engine.http.visualization.dto.VisualizationResultView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -63,11 +66,11 @@ public interface ProjectApi {
 
     @Operation(summary = "Get daily metrics")
     @GetMapping("/projects/{projectId}/metrics/daily")
-    List<Map<String, Object>> dailyMetrics(@PathVariable Integer projectId, @RequestParam(defaultValue = "28") int days);
+    List<DailyMetricView> dailyMetrics(@PathVariable Integer projectId, @RequestParam(defaultValue = "28") int days);
 
     @Operation(summary = "Get weekly metrics")
     @GetMapping("/projects/{projectId}/metrics/weekly")
-    List<Map<String, Object>> weeklyMetrics(@PathVariable Integer projectId, @RequestParam(defaultValue = "12") int weeks);
+    List<WeeklyMetricView> weeklyMetrics(@PathVariable Integer projectId, @RequestParam(defaultValue = "12") int weeks);
 
     @Operation(summary = "Trigger metrics generation")
     @PostMapping("/projects/{projectId}/metrics/generate")
@@ -96,7 +99,7 @@ public interface ProjectApi {
 
     @Operation(summary = "Get activity heatmap")
     @GetMapping("/projects/{projectId}/activity/heatmap")
-    List<Map<String, Object>> activityHeatmap(@PathVariable Integer projectId);
+    List<ActivityHeatmapPointView> activityHeatmap(@PathVariable Integer projectId);
 
     @Operation(summary = "List dates with snapshots")
     @GetMapping("/projects/{projectId}/snapshot/dates")
@@ -111,5 +114,5 @@ public interface ProjectApi {
 
     @Operation(summary = "Generate a visualization overlay")
     @PostMapping("/projects/{projectId}/visualize")
-    Map<String, Object> visualize(@PathVariable Integer projectId, @Valid @RequestBody VisualizeRequest request);
+    VisualizationResultView visualize(@PathVariable Integer projectId, @Valid @RequestBody VisualizeRequest request);
 }

@@ -1,6 +1,4 @@
 package com.sitepulse.engine.plan.infrastructure.external;
-
-import com.sitepulse.engine.integration.pdf.PdfTextExtractor;
 import com.sitepulse.engine.plan.domain.port.PlanDocumentTextExtractor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

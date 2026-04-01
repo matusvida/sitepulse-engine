@@ -1,7 +1,7 @@
 package com.sitepulse.engine.detection.application.usecase;
 
 import com.sitepulse.engine.common.domain.port.ObjectStorage;
-import com.sitepulse.engine.common.web.ApiException;
+import com.sitepulse.engine.common.exception.ValidationException;
 import com.sitepulse.engine.config.SitePulseProperties;
 import com.sitepulse.engine.detection.application.command.RunOnDemandDetectionCommand;
 import com.sitepulse.engine.detection.domain.model.DetectionImage;
@@ -17,7 +17,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -65,17 +64,17 @@ public class RunOnDemandDetectionUseCase {
     private DetectionTarget resolveTarget(RunOnDemandDetectionCommand command) {
         if (command.s3Url() != null && !command.s3Url().isBlank()) {
             if (!command.s3Url().startsWith("s3://")) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid S3 URL");
+                throw new ValidationException("Invalid S3 URL");
             }
             String raw = command.s3Url().substring("s3://".length());
             int slash = raw.indexOf('/');
             if (slash < 0) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid S3 URL");
+                throw new ValidationException("Invalid S3 URL");
             }
             return new DetectionTarget(raw.substring(0, slash), raw.substring(slash + 1), null, null);
         }
         if (command.key() == null || command.key().isBlank()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Either 'key' or 's3_url' must be provided");
+            throw new ValidationException("Either 'key' or 's3_url' must be provided");
         }
         return new DetectionTarget(
                 command.bucket() == null || command.bucket().isBlank() ? properties.minioBucketDefault() : command.bucket(),

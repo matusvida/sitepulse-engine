@@ -1,10 +1,10 @@
 package com.sitepulse.engine.sync.infrastructure.persistence;
 
-import com.sitepulse.engine.detection.domain.ImageEntity;
 import com.sitepulse.engine.detection.domain.ImageStatus;
-import com.sitepulse.engine.detection.persistence.ImageRepository;
-import com.sitepulse.engine.project.domain.CameraEntity;
-import com.sitepulse.engine.project.persistence.CameraRepository;
+import com.sitepulse.engine.detection.infrastructure.persistence.ImageEntity;
+import com.sitepulse.engine.detection.infrastructure.persistence.ImageRepository;
+import com.sitepulse.engine.project.infrastructure.persistence.CameraEntity;
+import com.sitepulse.engine.project.infrastructure.persistence.CameraRepository;
 import com.sitepulse.engine.sync.domain.model.ImageImport;
 import com.sitepulse.engine.sync.domain.port.ImageCatalogRepository;
 import java.time.OffsetDateTime;

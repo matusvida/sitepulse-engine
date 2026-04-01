@@ -1,9 +1,7 @@
 package com.sitepulse.engine.metrics.infrastructure.persistence;
 
-import com.sitepulse.engine.metrics.domain.WeeklyMetricEntity;
 import com.sitepulse.engine.metrics.domain.model.WeeklyMetric;
 import com.sitepulse.engine.metrics.domain.port.WeeklyMetricCatalogRepository;
-import com.sitepulse.engine.metrics.persistence.WeeklyMetricRepository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;

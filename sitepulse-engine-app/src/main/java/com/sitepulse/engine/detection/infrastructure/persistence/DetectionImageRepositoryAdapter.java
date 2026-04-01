@@ -1,9 +1,7 @@
 package com.sitepulse.engine.detection.infrastructure.persistence;
 
-import com.sitepulse.engine.detection.domain.ImageEntity;
 import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.detection.domain.port.DetectionImageRepository;
-import com.sitepulse.engine.detection.persistence.ImageRepository;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;

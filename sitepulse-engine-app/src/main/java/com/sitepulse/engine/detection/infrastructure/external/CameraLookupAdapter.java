@@ -2,7 +2,7 @@ package com.sitepulse.engine.detection.infrastructure.external;
 
 import com.sitepulse.engine.detection.domain.model.CameraRoiSettings;
 import com.sitepulse.engine.detection.domain.port.CameraLookup;
-import com.sitepulse.engine.project.persistence.CameraRepository;
+import com.sitepulse.engine.project.infrastructure.persistence.CameraRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

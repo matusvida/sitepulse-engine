@@ -1,7 +1,7 @@
 package com.sitepulse.engine.detection.domain.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sitepulse.engine.common.web.ApiException;
+import com.sitepulse.engine.common.exception.ProcessingException;
 import com.sitepulse.engine.config.SitePulseProperties;
 import com.sitepulse.engine.detection.domain.model.CameraRoiSettings;
 import com.sitepulse.engine.detection.domain.model.DetectedObject;
@@ -10,12 +10,12 @@ import com.sitepulse.engine.detection.domain.model.DetectionOutcome;
 import com.sitepulse.engine.detection.domain.model.RawDetection;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import javax.imageio.ImageIO;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -49,14 +49,11 @@ public class DetectionPostProcessor {
         try {
             BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageBytes));
             if (image == null) {
-                throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Could not decode image");
+                throw new ProcessingException("Could not decode image");
             }
             return image;
-        } catch (Exception ex) {
-            if (ex instanceof ApiException apiException) {
-                throw apiException;
-            }
-            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Could not decode image");
+        } catch (IOException ex) {
+            throw new ProcessingException("Could not decode image", ex);
         }
     }
 

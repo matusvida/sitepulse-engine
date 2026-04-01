@@ -1,9 +1,7 @@
 package com.sitepulse.engine.project.infrastructure.persistence;
 
-import com.sitepulse.engine.project.domain.CameraEntity;
 import com.sitepulse.engine.project.domain.model.Camera;
 import com.sitepulse.engine.project.domain.port.CameraCatalogRepository;
-import com.sitepulse.engine.project.persistence.CameraRepository;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;

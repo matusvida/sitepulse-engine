@@ -1,6 +1,4 @@
 package com.sitepulse.engine.sync.infrastructure.external;
-
-import com.sitepulse.engine.integration.dropbox.DropboxClientService;
 import com.sitepulse.engine.sync.domain.model.SourceImageFile;
 import com.sitepulse.engine.sync.domain.port.SyncSource;
 import java.util.List;

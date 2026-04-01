@@ -1,19 +1,21 @@
 package com.sitepulse.engine.root.web;
 
+import com.sitepulse.engine.http.root.api.RootApi;
+import com.sitepulse.engine.http.root.dto.RootInfoView;
 import java.util.List;
-import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-public class RootController {
+public class RootController implements RootApi {
 
+    @Override
     @GetMapping("/")
-    public Map<String, Object> root() {
-        return Map.of(
-                "service", "sitepulse-spring-app",
-                "docs", "/swagger-ui.html",
-                "endpoints", List.of("/health", "/detect", "/api/projects")
+    public RootInfoView root() {
+        return new RootInfoView(
+                "sitepulse-spring-app",
+                "/swagger-ui.html",
+                List.of("/health", "/detect", "/api/projects")
         );
     }
 }

@@ -16,4 +16,5 @@ sitepulse:
   dropbox-app-key: scgiggizvvup4aq
   dropbox-app-secret: 7jgeyny2ff534ep
   dropbox-refresh-token: cM1SFDsV37YAAAAAAAAAAY76lkde5gD5T2YigM9QOjAShzZCehhYNL506oKrfBwA
+  openai-model: ${OPENAI_MODEL:gpt-4o}
   python-yolo-base-url: http://localhost:8000

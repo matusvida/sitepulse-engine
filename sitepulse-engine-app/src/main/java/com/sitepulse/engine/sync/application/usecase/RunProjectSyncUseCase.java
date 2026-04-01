@@ -1,10 +1,13 @@
 package com.sitepulse.engine.sync.application.usecase;
 
+import com.sitepulse.engine.common.application.event.DomainEventPublisher;
+import com.sitepulse.engine.common.exception.SitePulseException;
 import com.sitepulse.engine.common.domain.port.ObjectStorage;
 import com.sitepulse.engine.project.domain.model.Project;
 import com.sitepulse.engine.sync.domain.model.ImageImport;
 import com.sitepulse.engine.sync.domain.model.SourceImageFile;
 import com.sitepulse.engine.sync.domain.model.SyncJob;
+import com.sitepulse.engine.sync.domain.event.ProjectSyncCompletedEvent;
 import com.sitepulse.engine.sync.domain.port.ImageCatalogRepository;
 import com.sitepulse.engine.sync.domain.port.SyncJobRepository;
 import com.sitepulse.engine.sync.domain.port.SyncSource;
@@ -29,6 +32,7 @@ public class RunProjectSyncUseCase {
     private final ObjectStorage objectStorage;
     private final SyncJobRepository syncJobRepository;
     private final ImageCatalogRepository imageCatalogRepository;
+    private final DomainEventPublisher domainEventPublisher;
 
     public void run(Project project) {
         log.info("Sync started for projectId={} dropboxPath={}", project.getId(), project.getDropboxPath());
@@ -51,19 +55,32 @@ public class RunProjectSyncUseCase {
                         objectStorage.upload(imageImport.bucket(), imageImport.key(), bytes, imageImport.contentType());
                         imageCatalogRepository.saveImportedImage(imageImport);
                         syncJob.recordImportedImage();
-                    } catch (Exception ex) {
+                    } catch (SitePulseException ex) {
                         log.warn("Failed to sync file for projectId={} file={} reason={}", project.getId(), sourceImageFile.name(), ex.getMessage());
+                        syncJob.recordFileFailure(sourceImageFile.name() + ": " + safeMessage(ex));
+                    } catch (RuntimeException ex) {
+                        log.error("Unexpected sync failure for projectId={} file={}", project.getId(), sourceImageFile.name(), ex);
                         syncJob.recordFileFailure(sourceImageFile.name() + ": " + safeMessage(ex));
                     }
                 }
             }
-        } catch (Exception ex) {
+        } catch (SitePulseException ex) {
             log.error("Sync failed for projectId={} reason={}", project.getId(), ex.getMessage(), ex);
+            syncJob.recordFatalFailure(safeMessage(ex));
+        } catch (RuntimeException ex) {
+            log.error("Unexpected sync failure for projectId={} reason={}", project.getId(), ex.getMessage(), ex);
             syncJob.recordFatalFailure(safeMessage(ex));
         }
 
         syncJob.finish(OffsetDateTime.now(ZoneOffset.UTC));
         syncJobRepository.save(syncJob);
+        domainEventPublisher.publish(new ProjectSyncCompletedEvent(
+                syncJob.getProjectId(),
+                syncJob.getId(),
+                syncJob.getStatus(),
+                syncJob.getImagesFound(),
+                syncJob.getImagesSynced()
+        ));
         log.info("Sync finished for projectId={} status={} imagesFound={} imagesSynced={} errorCount={}",
                 project.getId(),
                 syncJob.getStatus(),
@@ -115,7 +132,7 @@ public class RunProjectSyncUseCase {
         return fileName.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
     }
 
-    private String safeMessage(Exception ex) {
+    private String safeMessage(Throwable ex) {
         return ex.getMessage() == null || ex.getMessage().isBlank() ? ex.getClass().getSimpleName() : ex.getMessage();
     }
 }

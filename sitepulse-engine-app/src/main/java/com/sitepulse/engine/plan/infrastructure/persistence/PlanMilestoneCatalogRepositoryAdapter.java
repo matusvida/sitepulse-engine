@@ -1,10 +1,8 @@
 package com.sitepulse.engine.plan.infrastructure.persistence;
 
-import com.sitepulse.engine.plan.domain.PlanMilestoneEntity;
 import com.sitepulse.engine.plan.domain.model.MilestoneStatus;
 import com.sitepulse.engine.plan.domain.model.PlanMilestone;
 import com.sitepulse.engine.plan.domain.port.PlanMilestoneCatalogRepository;
-import com.sitepulse.engine.plan.persistence.PlanMilestoneRepository;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;

@@ -1,9 +1,7 @@
 package com.sitepulse.engine.report.infrastructure.persistence;
 
-import com.sitepulse.engine.report.domain.ProgressReportEntity;
 import com.sitepulse.engine.report.domain.model.ProgressReport;
 import com.sitepulse.engine.report.domain.port.ProgressReportCatalogRepository;
-import com.sitepulse.engine.report.persistence.ProgressReportRepository;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;

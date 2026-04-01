@@ -3,13 +3,14 @@ package com.sitepulse.engine.project.web;
 import com.sitepulse.engine.alert.application.result.AlertResult;
 import com.sitepulse.engine.alert.application.usecase.ListProjectAlertsQuery;
 import com.sitepulse.engine.alert.application.usecase.UpdateAlertStatusUseCase;
-import com.sitepulse.engine.common.web.ApiException;
-import com.sitepulse.engine.detection.domain.ImageEntity;
-import com.sitepulse.engine.detection.persistence.ImageRepository;
+import com.sitepulse.engine.common.exception.ResourceNotFoundException;
 import com.sitepulse.engine.http.alert.dto.AlertStatusUpdateRequest;
 import com.sitepulse.engine.http.alert.dto.AlertView;
 import com.sitepulse.engine.http.common.dto.ActionResponse;
+import com.sitepulse.engine.http.metrics.dto.ActivityHeatmapPointView;
+import com.sitepulse.engine.http.metrics.dto.DailyMetricView;
 import com.sitepulse.engine.http.metrics.dto.MetricsGenerateRequest;
+import com.sitepulse.engine.http.metrics.dto.WeeklyMetricView;
 import com.sitepulse.engine.http.project.api.ProjectApi;
 import com.sitepulse.engine.http.project.dto.CameraCreateRequest;
 import com.sitepulse.engine.http.project.dto.CameraUpdateRequest;
@@ -19,7 +20,7 @@ import com.sitepulse.engine.http.project.dto.ProjectUpdateRequest;
 import com.sitepulse.engine.http.project.dto.ProjectView;
 import com.sitepulse.engine.http.project.dto.SyncStatusView;
 import com.sitepulse.engine.http.visualization.dto.VisualizeRequest;
-import com.sitepulse.engine.integration.storage.StorageService;
+import com.sitepulse.engine.http.visualization.dto.VisualizationResultView;
 import com.sitepulse.engine.metrics.application.result.ActivityHeatmapPointResult;
 import com.sitepulse.engine.metrics.application.result.DailyMetricResult;
 import com.sitepulse.engine.metrics.application.result.WeeklyMetricResult;
@@ -32,9 +33,12 @@ import com.sitepulse.engine.project.application.command.CreateCameraCommand;
 import com.sitepulse.engine.project.application.command.CreateProjectCommand;
 import com.sitepulse.engine.project.application.command.UpdateCameraCommand;
 import com.sitepulse.engine.project.application.command.UpdateProjectCommand;
+import com.sitepulse.engine.project.application.result.ProjectSnapshotResult;
 import com.sitepulse.engine.project.application.usecase.CreateCameraUseCase;
 import com.sitepulse.engine.project.application.usecase.CreateProjectUseCase;
+import com.sitepulse.engine.project.application.usecase.GetProjectSnapshotQuery;
 import com.sitepulse.engine.project.application.usecase.GetProjectQuery;
+import com.sitepulse.engine.project.application.usecase.ListSnapshotDatesQuery;
 import com.sitepulse.engine.project.application.usecase.ListProjectCamerasQuery;
 import com.sitepulse.engine.project.application.usecase.ListProjectsQuery;
 import com.sitepulse.engine.project.application.usecase.UpdateCameraUseCase;
@@ -42,12 +46,10 @@ import com.sitepulse.engine.project.application.usecase.UpdateProjectUseCase;
 import com.sitepulse.engine.sync.application.result.SyncStatusResult;
 import com.sitepulse.engine.sync.application.usecase.GetProjectSyncStatusQuery;
 import com.sitepulse.engine.sync.application.usecase.TriggerProjectSyncUseCase;
-import com.sitepulse.engine.visualization.application.VisualizationService;
+import com.sitepulse.engine.visualization.application.result.VisualizationBatchResult;
+import com.sitepulse.engine.visualization.application.usecase.GenerateDetectionVisualizationUseCase;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
@@ -73,9 +75,9 @@ public class ProjectController implements ProjectApi {
     private final UpdateAlertStatusUseCase updateAlertStatusUseCase;
     private final GetProjectSyncStatusQuery getProjectSyncStatusQuery;
     private final TriggerProjectSyncUseCase triggerProjectSyncUseCase;
-    private final ImageRepository imageRepository;
-    private final StorageService storageService;
-    private final VisualizationService visualizationService;
+    private final ListSnapshotDatesQuery listSnapshotDatesQuery;
+    private final GetProjectSnapshotQuery getProjectSnapshotQuery;
+    private final GenerateDetectionVisualizationUseCase generateDetectionVisualizationUseCase;
     private final GetActivityHeatmapQuery getActivityHeatmapQuery;
 
     @Override
@@ -118,14 +120,14 @@ public class ProjectController implements ProjectApi {
     }
 
     @Override
-    public List<Map<String, Object>> dailyMetrics(Integer projectId, int days) {
+    public List<DailyMetricView> dailyMetrics(Integer projectId, int days) {
         return listDailyMetricsQuery.list(projectId, days).stream()
                 .map(this::toDailyMetricView)
                 .toList();
     }
 
     @Override
-    public List<Map<String, Object>> weeklyMetrics(Integer projectId, int weeks) {
+    public List<WeeklyMetricView> weeklyMetrics(Integer projectId, int weeks) {
         return listWeeklyMetricsQuery.list(projectId, weeks).stream()
                 .map(this::toWeeklyMetricView)
                 .toList();
@@ -192,7 +194,7 @@ public class ProjectController implements ProjectApi {
     }
 
     @Override
-    public List<Map<String, Object>> activityHeatmap(Integer projectId) {
+    public List<ActivityHeatmapPointView> activityHeatmap(Integer projectId) {
         return getActivityHeatmapQuery.get(projectId).stream()
                 .map(this::toActivityHeatmapView)
                 .toList();
@@ -200,30 +202,23 @@ public class ProjectController implements ProjectApi {
 
     @Override
     public List<String> snapshotDates(Integer projectId) {
-        projectLookupService.requireProject(projectId);
-        return imageRepository.findSnapshotCapturedAtValues(projectId).stream()
-                .map(instant -> instant.withOffsetSameInstant(ZoneOffset.UTC).toLocalDate())
-                .distinct()
-                .map(LocalDate::toString)
-                .toList();
+        return listSnapshotDatesQuery.list(projectId);
     }
 
     @Override
     public ResponseEntity<byte[]> snapshot(Integer projectId, @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        projectLookupService.requireProject(projectId);
-        OffsetDateTime dayStart = date.atStartOfDay().atOffset(ZoneOffset.UTC);
-        OffsetDateTime dayEnd = date.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC);
-        OffsetDateTime midday = date.atTime(12, 0).atOffset(ZoneOffset.UTC);
-        ImageEntity image = imageRepository.findClosestSnapshot(projectId, dayStart, dayEnd, midday)
-                .orElseThrow(() -> new ApiException(org.springframework.http.HttpStatus.NOT_FOUND, "No image found for " + date));
-        byte[] data = storageService.download(image.getBucket(), image.getKey());
-        String mediaType = image.getKey().toLowerCase().endsWith(".png") ? MediaType.IMAGE_PNG_VALUE : MediaType.IMAGE_JPEG_VALUE;
-        return ResponseEntity.ok().contentType(MediaType.parseMediaType(mediaType)).body(data);
+        ProjectSnapshotResult snapshot = getProjectSnapshotQuery.get(projectId, date);
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType(snapshot.getMediaType())).body(snapshot.getContent());
     }
 
     @Override
-    public Map<String, Object> visualize(Integer projectId, VisualizeRequest request) {
-        return visualizationService.visualize(projectId, LocalDate.parse(request.getDateFrom()), LocalDate.parse(request.getDateTo()));
+    public VisualizationResultView visualize(Integer projectId, VisualizeRequest request) {
+        VisualizationBatchResult result = generateDetectionVisualizationUseCase.generate(
+                projectId,
+                LocalDate.parse(request.getDateFrom()),
+                LocalDate.parse(request.getDateTo())
+        );
+        return new VisualizationResultView(result.getImagesFound(), result.getImagesProcessed(), result.getErrors());
     }
 
     private AlertView toAlertView(AlertResult alert) {
@@ -241,30 +236,21 @@ public class ProjectController implements ProjectApi {
         );
     }
 
-    private Map<String, Object> toDailyMetricView(DailyMetricResult row) {
-        return Map.of(
-                "date", row.getDate().toString(),
-                "peopleCount", row.getPeopleCount(),
-                "vehicleCount", row.getVehicleCount(),
-                "activeHours", row.getActiveHours()
+    private DailyMetricView toDailyMetricView(DailyMetricResult row) {
+        return new DailyMetricView(row.getDate().toString(), row.getPeopleCount(), row.getVehicleCount(), row.getActiveHours());
+    }
+
+    private WeeklyMetricView toWeeklyMetricView(WeeklyMetricResult row) {
+        return new WeeklyMetricView(
+                row.getWeekStart().toString(),
+                row.getProgressDelta(),
+                row.getActivityIndex(),
+                row.getActiveHours(),
+                row.getRiskLevel()
         );
     }
 
-    private Map<String, Object> toWeeklyMetricView(WeeklyMetricResult row) {
-        return Map.of(
-                "weekStart", row.getWeekStart().toString(),
-                "progressDelta", row.getProgressDelta(),
-                "activityIndex", row.getActivityIndex(),
-                "activeHours", row.getActiveHours(),
-                "riskLevel", row.getRiskLevel()
-        );
-    }
-
-    private Map<String, Object> toActivityHeatmapView(ActivityHeatmapPointResult row) {
-        return Map.of(
-                "dayOfWeek", row.getDayOfWeek(),
-                "hour", row.getHour(),
-                "count", row.getCount()
-        );
+    private ActivityHeatmapPointView toActivityHeatmapView(ActivityHeatmapPointResult row) {
+        return new ActivityHeatmapPointView(row.getDayOfWeek(), row.getHour(), row.getCount());
     }
 }

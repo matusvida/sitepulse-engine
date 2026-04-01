@@ -1,6 +1,7 @@
 package com.sitepulse.engine.detection.application.usecase;
 
 import com.sitepulse.engine.common.domain.port.ObjectStorage;
+import com.sitepulse.engine.common.exception.SitePulseException;
 import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.detection.domain.model.DetectionInference;
 import com.sitepulse.engine.detection.domain.model.DetectionOutcome;
@@ -48,7 +49,7 @@ public class ProcessPendingImagesUseCase {
                     detectionRecordRepository.replaceDetections(image.getId(), image.getProjectId(), outcome.modelVersion(), outcome.detections());
                 }
                 log.info("Detection completed for imageId={} key={}", image.getId(), image.getKey());
-            } catch (Exception ex) {
+            } catch (RuntimeException ex) {
                 image.markFailed(OffsetDateTime.now(ZoneOffset.UTC));
                 detectionImageRepository.save(image);
                 log.error("Detection failed for imageId={} key={} reason={}", image.getId(), image.getKey(), ex.getMessage(), ex);

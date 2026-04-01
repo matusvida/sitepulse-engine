@@ -1,11 +1,9 @@
 package com.sitepulse.engine.alert.infrastructure.persistence;
 
-import com.sitepulse.engine.alert.domain.AlertEntity;
 import com.sitepulse.engine.alert.domain.model.Alert;
 import com.sitepulse.engine.alert.domain.model.AlertSeverity;
 import com.sitepulse.engine.alert.domain.model.AlertStatus;
 import com.sitepulse.engine.alert.domain.port.AlertCatalogRepository;
-import com.sitepulse.engine.alert.persistence.AlertRepository;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;

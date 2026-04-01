@@ -1,10 +1,8 @@
 package com.sitepulse.engine.detection.infrastructure.persistence;
 
 import com.sitepulse.engine.common.util.JsonUtils;
-import com.sitepulse.engine.detection.domain.DetectionEntity;
 import com.sitepulse.engine.detection.domain.model.DetectedObject;
 import com.sitepulse.engine.detection.domain.port.DetectionRecordRepository;
-import com.sitepulse.engine.detection.persistence.DetectionRepository;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;

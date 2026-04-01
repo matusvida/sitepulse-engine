@@ -1,12 +1,9 @@
 package com.sitepulse.engine.plan.infrastructure.persistence;
 
-import com.sitepulse.engine.plan.domain.ConstructionPlanEntity;
 import com.sitepulse.engine.plan.domain.model.ConstructionPlan;
 import com.sitepulse.engine.plan.domain.model.PlanMilestone;
 import com.sitepulse.engine.plan.domain.model.PlanStatus;
 import com.sitepulse.engine.plan.domain.port.ConstructionPlanCatalogRepository;
-import com.sitepulse.engine.plan.persistence.ConstructionPlanRepository;
-import com.sitepulse.engine.plan.persistence.PlanMilestoneRepository;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;

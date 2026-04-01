@@ -1,6 +1,8 @@
 package com.sitepulse.engine.plan.application.usecase;
 
-import com.sitepulse.engine.common.web.ApiException;
+import com.sitepulse.engine.common.exception.ExternalServiceException;
+import com.sitepulse.engine.common.exception.ValidationException;
+import java.io.IOException;
 import com.sitepulse.engine.plan.application.result.PlanUploadResult;
 import com.sitepulse.engine.plan.domain.model.ConstructionPlan;
 import com.sitepulse.engine.plan.domain.model.ParsedMilestone;
@@ -14,7 +16,6 @@ import java.time.ZoneOffset;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -53,20 +54,18 @@ public class UploadConstructionPlanUseCase {
                     .toList();
             ConstructionPlan savedPlan = constructionPlanCatalogRepository.saveUploadedPlan(plan, milestones);
             return new PlanUploadResult(savedPlan.getId(), savedPlan.getFilename(), parsedMilestones.size(), savedPlan.getStatus());
-        } catch (ApiException ex) {
-            throw ex;
-        } catch (Exception ex) {
+        } catch (IOException ex) {
             log.error("Plan upload failed for projectId={} filename={}", projectId, file.getOriginalFilename(), ex);
-            throw new ApiException(HttpStatus.BAD_GATEWAY, "Plan upload failed");
+            throw new ExternalServiceException("Plan upload failed", ex);
         }
     }
 
     private void validateFile(MultipartFile file) {
         if (file.isEmpty() || file.getOriginalFilename() == null || !file.getOriginalFilename().toLowerCase().endsWith(".pdf")) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Only PDF files are accepted");
+            throw new ValidationException("Only PDF files are accepted");
         }
         if (file.getSize() > MAX_PDF_SIZE) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "File too large (max 20 MB)");
+            throw new ValidationException("File too large (max 20 MB)");
         }
     }
 }

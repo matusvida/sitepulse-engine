@@ -2,8 +2,6 @@ package com.sitepulse.engine.project.infrastructure.persistence;
 
 import com.sitepulse.engine.project.domain.model.Project;
 import com.sitepulse.engine.project.domain.port.ProjectCatalogRepository;
-import com.sitepulse.engine.project.domain.ProjectEntity;
-import com.sitepulse.engine.project.persistence.ProjectRepository;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;

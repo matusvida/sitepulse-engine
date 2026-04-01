@@ -1,6 +1,6 @@
 package com.sitepulse.engine.plan.infrastructure.external;
 
-import com.sitepulse.engine.integration.openai.OpenAiService;
+import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiService;
 import com.sitepulse.engine.plan.domain.model.MilestoneAssessment;
 import com.sitepulse.engine.plan.domain.model.MilestoneStatus;
 import com.sitepulse.engine.plan.domain.model.ParsedMilestone;
@@ -20,10 +20,10 @@ public class OpenAiPlanIntelligenceGateway implements PlanIntelligenceGateway {
     public List<ParsedMilestone> parseMilestones(String rawPlanText) {
         return openAiService.parsePlanMilestones(rawPlanText).stream()
                 .map(milestone -> new ParsedMilestone(
-                        ((Number) milestone.getOrDefault("week_number", 0)).intValue(),
-                        String.valueOf(milestone.getOrDefault("title", "Untitled")),
-                        String.valueOf(milestone.getOrDefault("description", "")),
-                        String.valueOf(milestone.getOrDefault("expected_state", ""))
+                        milestone.getWeekNumber(),
+                        milestone.getTitle() == null ? "Untitled" : milestone.getTitle(),
+                        milestone.getDescription() == null ? "" : milestone.getDescription(),
+                        milestone.getExpectedState() == null ? "" : milestone.getExpectedState()
                 ))
                 .toList();
     }
@@ -36,8 +36,8 @@ public class OpenAiPlanIntelligenceGateway implements PlanIntelligenceGateway {
                 evidenceImages
         );
         return new MilestoneAssessment(
-                MilestoneStatus.fromValue(String.valueOf(assessment.getOrDefault("status", "not_started"))),
-                String.valueOf(assessment.getOrDefault("actual_state", ""))
+                MilestoneStatus.fromValue(assessment.getStatus() == null ? "not_started" : assessment.getStatus()),
+                assessment.getActualState() == null ? "" : assessment.getActualState()
         );
     }
 }

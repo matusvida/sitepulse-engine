@@ -1,7 +1,7 @@
 package com.sitepulse.engine.report.infrastructure.external;
 
 import com.sitepulse.engine.common.domain.port.ObjectStorage;
-import com.sitepulse.engine.detection.persistence.ImageRepository;
+import com.sitepulse.engine.detection.domain.port.ProcessedImageReadModel;
 import com.sitepulse.engine.report.domain.model.ReportImageEvidence;
 import com.sitepulse.engine.report.domain.port.ReportEvidenceImageProvider;
 import java.time.LocalDate;
@@ -16,12 +16,12 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class StorageBackedReportEvidenceImageProvider implements ReportEvidenceImageProvider {
 
-    private final ImageRepository imageRepository;
+    private final ProcessedImageReadModel processedImageReadModel;
     private final ObjectStorage objectStorage;
 
     @Override
     public List<ReportImageEvidence> gather(Integer projectId, LocalDate dateFrom, LocalDate dateTo, int maxImages) {
-        var rows = imageRepository.findDoneInRange(
+        var rows = processedImageReadModel.findDoneInRange(
                 projectId,
                 dateFrom.atStartOfDay().atOffset(ZoneOffset.UTC),
                 dateTo.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC)

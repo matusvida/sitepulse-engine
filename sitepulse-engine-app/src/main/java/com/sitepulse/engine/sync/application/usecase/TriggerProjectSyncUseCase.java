@@ -1,11 +1,10 @@
 package com.sitepulse.engine.sync.application.usecase;
 
-import com.sitepulse.engine.common.web.ApiException;
+import com.sitepulse.engine.common.exception.ValidationException;
 import com.sitepulse.engine.project.application.ProjectLookupService;
 import com.sitepulse.engine.project.domain.model.Project;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +26,7 @@ public class TriggerProjectSyncUseCase {
     private Project requireSyncableProject(Integer projectId) {
         Project project = projectLookupService.requireProject(projectId);
         if (project.getDropboxPath() == null || project.getDropboxPath().isBlank()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Project has no dropboxPath configured");
+            throw new ValidationException("Project has no dropboxPath configured");
         }
         return project;
     }

@@ -1,13 +1,12 @@
 package com.sitepulse.engine.project.application.usecase;
 
-import com.sitepulse.engine.common.web.ApiException;
+import com.sitepulse.engine.common.exception.ResourceNotFoundException;
 import com.sitepulse.engine.http.project.dto.CameraView;
 import com.sitepulse.engine.project.application.ProjectLookupService;
 import com.sitepulse.engine.project.application.command.UpdateCameraCommand;
 import com.sitepulse.engine.project.domain.model.Camera;
 import com.sitepulse.engine.project.domain.port.CameraCatalogRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +21,7 @@ public class UpdateCameraUseCase {
     public CameraView update(UpdateCameraCommand command) {
         projectLookupService.requireProject(command.projectId());
         Camera camera = cameraCatalogRepository.findByIdAndProjectId(command.cameraId(), command.projectId())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Camera not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Camera not found"));
         camera.update(command.roiPolygon(), command.dropOutside());
         camera = cameraCatalogRepository.save(camera);
         return new CameraView(
