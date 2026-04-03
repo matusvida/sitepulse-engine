@@ -7,6 +7,9 @@ public record DetectedObjectResult(
         String className,
         Double score,
         List<Double> bboxXyxy,
-        Boolean inRoi
+        Boolean inRoi,
+        Integer trackId,
+        String colorHint,
+        String notes
 ) {
 }

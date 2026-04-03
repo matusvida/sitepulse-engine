@@ -14,9 +14,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+import com.fasterxml.jackson.databind.JsonNode;
 
 @Entity
-@Table(name = "detections")
+@Table(name = "detection_analysis_runs")
 @Getter
 @Setter
 @Builder
@@ -24,7 +27,7 @@ import lombok.ToString;
 @AllArgsConstructor
 @ToString(onlyExplicitlyIncluded = true)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class DetectionEntity {
+public class DetectionAnalysisRunEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,35 +38,33 @@ public class DetectionEntity {
     @Column(name = "image_id", nullable = false)
     private Integer imageId;
 
-    @Column(name = "project_id")
-    private Integer projectId;
+    @Column(name = "provider", nullable = false, length = 32)
+    private String provider;
 
     @Column(name = "model_version", length = 128)
     private String modelVersion;
 
-    @Column(name = "class_id")
-    private Integer classId;
+    @Column(name = "prompt_version", length = 64)
+    private String promptVersion;
 
-    @Column
-    private Double score;
+    @Column(name = "retry_count")
+    private Integer retryCount;
 
-    @Column(name = "bbox_xyxy", columnDefinition = "text")
-    private String bboxXyxy;
+    @Column(name = "previous_image_id")
+    private Integer previousImageId;
 
-    @Column(name = "track_id")
-    private Integer trackId;
+    @Column(name = "status", nullable = false, length = 32)
+    private String status;
 
-    @Column(name = "analysis_run_id")
-    private Integer analysisRunId;
+    @Column(name = "latency_ms")
+    private Double latencyMs;
 
-    @Column(name = "in_roi", length = 8)
-    private String inRoi;
+    @Column(name = "error", columnDefinition = "text")
+    private String error;
 
-    @Column(name = "color_hint", length = 32)
-    private String colorHint;
-
-    @Column(name = "notes", columnDefinition = "text")
-    private String notes;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "raw_response", columnDefinition = "jsonb")
+    private JsonNode rawResponse;
 
     @Column(name = "created_at")
     private OffsetDateTime createdAt;

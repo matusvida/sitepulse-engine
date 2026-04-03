@@ -6,12 +6,13 @@ import com.sitepulse.engine.config.SitePulseProperties;
 import com.sitepulse.engine.detection.application.command.RunOnDemandDetectionCommand;
 import com.sitepulse.engine.detection.application.result.DetectedObjectResult;
 import com.sitepulse.engine.detection.application.result.DetectionOutcomeResult;
+import com.sitepulse.engine.detection.application.service.DetectionExecutionResult;
+import com.sitepulse.engine.detection.application.service.DetectionExecutionService;
+import com.sitepulse.engine.detection.application.service.DetectionTrackingService;
 import com.sitepulse.engine.detection.domain.model.DetectionImage;
-import com.sitepulse.engine.detection.domain.model.DetectionInference;
 import com.sitepulse.engine.detection.domain.model.DetectionOutcome;
 import com.sitepulse.engine.detection.domain.model.DetectionTarget;
 import com.sitepulse.engine.detection.domain.port.CameraLookup;
-import com.sitepulse.engine.detection.domain.port.DetectionGateway;
 import com.sitepulse.engine.detection.domain.port.DetectionImageRepository;
 import com.sitepulse.engine.detection.domain.port.DetectionRecordRepository;
 import com.sitepulse.engine.detection.domain.service.DetectionPostProcessor;
@@ -27,7 +28,8 @@ import org.springframework.stereotype.Service;
 public class RunOnDemandDetectionUseCase {
 
     private final ObjectStorage objectStorage;
-    private final DetectionGateway detectionGateway;
+    private final DetectionExecutionService detectionExecutionService;
+    private final DetectionTrackingService detectionTrackingService;
     private final DetectionImageRepository detectionImageRepository;
     private final DetectionRecordRepository detectionRecordRepository;
     private final CameraLookup cameraLookup;
@@ -37,30 +39,43 @@ public class RunOnDemandDetectionUseCase {
     public DetectionOutcomeResult run(RunOnDemandDetectionCommand command) {
         DetectionTarget target = resolveTarget(command);
         log.info("Running on-demand detection for bucket={} key={}", target.bucket(), target.key());
-        byte[] imageBytes = objectStorage.download(target.bucket(), target.key());
-        DetectionInference inference = detectionGateway.infer(imageBytes);
-        DetectionOutcome outcome = detectionPostProcessor.process(
-                target.bucket(),
-                target.key(),
-                imageBytes,
-                inference,
-                target.projectId() == null ? null : cameraLookup.findRoiSettings(target.projectId(), target.key())
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        DetectionImage image = detectionImageRepository.save(
+                DetectionImage.createNew(
+                        target.bucket(),
+                        target.key(),
+                        target.projectId(),
+                        target.projectId() == null ? null : cameraLookup.findCameraIdByProjectAndKey(target.projectId(), target.key()),
+                        null,
+                        now
+                )
         );
-        if (!outcome.skipped()) {
-            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-            DetectionImage image = detectionImageRepository.save(
-                    DetectionImage.createDetected(
-                            target.bucket(),
-                            target.key(),
-                            target.projectId(),
-                            target.projectId() == null ? null : cameraLookup.findCameraIdByProjectAndKey(target.projectId(), target.key()),
-                            null,
-                            now
-                    )
+        image.markProcessing(now);
+        image = detectionImageRepository.save(image);
+        try {
+            byte[] imageBytes = objectStorage.download(target.bucket(), target.key());
+            DetectionExecutionResult execution = detectionExecutionService.execute(image, imageBytes);
+            DetectionOutcome outcome = detectionPostProcessor.process(
+                    target.bucket(),
+                    target.key(),
+                    imageBytes,
+                    execution.inference(),
+                    target.projectId() == null ? null : cameraLookup.findRoiSettings(target.projectId(), target.key())
             );
-            detectionRecordRepository.replaceDetections(image.getId(), target.projectId(), outcome.modelVersion(), outcome.detections());
+
+            if (!outcome.skipped()) {
+                var tracked = detectionTrackingService.assignTracks(image, outcome.detections(), execution.provider());
+                detectionRecordRepository.replaceDetections(image.getId(), target.projectId(), outcome.modelVersion(), execution.analysisRunId(), tracked);
+            }
+
+            image.markDone(OffsetDateTime.now(ZoneOffset.UTC));
+            detectionImageRepository.save(image);
+            return toResult(outcome);
+        } catch (RuntimeException ex) {
+            image.markFailed(OffsetDateTime.now(ZoneOffset.UTC));
+            detectionImageRepository.save(image);
+            throw ex;
         }
-        return toResult(outcome);
     }
 
     private DetectionOutcomeResult toResult(DetectionOutcome outcome) {
@@ -72,7 +87,7 @@ public class RunOnDemandDetectionUseCase {
                 outcome.imageHeight(),
                 outcome.inferenceMs(),
                 outcome.detections().stream()
-                        .map(d -> new DetectedObjectResult(d.classId(), d.className(), d.score(), d.bboxXyxy(), d.inRoi()))
+                        .map(d -> new DetectedObjectResult(d.classId(), d.className(), d.score(), d.bboxXyxy(), d.inRoi(), d.trackId(), d.colorHint(), d.notes()))
                         .toList(),
                 outcome.warnings(),
                 outcome.skipped()

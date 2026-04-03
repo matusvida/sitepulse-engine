@@ -19,7 +19,7 @@ public class DetectionRecordRepositoryAdapter implements DetectionRecordReposito
 
     @Override
     @Transactional
-    public void replaceDetections(Integer imageId, Integer projectId, String modelVersion, List<DetectedObject> detections) {
+    public void replaceDetections(Integer imageId, Integer projectId, String modelVersion, Integer analysisRunId, List<DetectedObject> detections) {
         detectionRepository.deleteByImageId(imageId);
         for (DetectedObject detection : detections) {
             detectionRepository.save(DetectionEntity.builder()
@@ -27,10 +27,13 @@ public class DetectionRecordRepositoryAdapter implements DetectionRecordReposito
                     .projectId(projectId)
                     .modelVersion(modelVersion)
                     .classId(detection.classId())
-                    .className(detection.className())
                     .score(detection.score())
                     .bboxXyxy(jsonUtils.write(detection.bboxXyxy()))
                     .inRoi(detection.inRoi() == null ? null : detection.inRoi().toString())
+                    .trackId(detection.trackId())
+                    .analysisRunId(analysisRunId)
+                    .colorHint(detection.colorHint())
+                    .notes(detection.notes())
                     .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
                     .build());
         }

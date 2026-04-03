@@ -16,7 +16,7 @@ import lombok.Setter;
 import lombok.ToString;
 
 @Entity
-@Table(name = "detections")
+@Table(name = "detection_tracks")
 @Getter
 @Setter
 @Builder
@@ -24,7 +24,7 @@ import lombok.ToString;
 @AllArgsConstructor
 @ToString(onlyExplicitlyIncluded = true)
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class DetectionEntity {
+public class DetectionTrackEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,39 +32,33 @@ public class DetectionEntity {
     @ToString.Include
     private Integer id;
 
-    @Column(name = "image_id", nullable = false)
-    private Integer imageId;
-
     @Column(name = "project_id")
     private Integer projectId;
 
-    @Column(name = "model_version", length = 128)
-    private String modelVersion;
+    @Column(name = "camera_id")
+    private Integer cameraId;
 
-    @Column(name = "class_id")
+    @Column(name = "class_id", nullable = false)
     private Integer classId;
-
-    @Column
-    private Double score;
-
-    @Column(name = "bbox_xyxy", columnDefinition = "text")
-    private String bboxXyxy;
-
-    @Column(name = "track_id")
-    private Integer trackId;
-
-    @Column(name = "analysis_run_id")
-    private Integer analysisRunId;
-
-    @Column(name = "in_roi", length = 8)
-    private String inRoi;
 
     @Column(name = "color_hint", length = 32)
     private String colorHint;
 
-    @Column(name = "notes", columnDefinition = "text")
-    private String notes;
+    @Column(name = "current_bbox_xyxy", columnDefinition = "text")
+    private String currentBboxXyxy;
+
+    @Column(name = "first_seen_image_id")
+    private Integer firstSeenImageId;
+
+    @Column(name = "last_seen_image_id")
+    private Integer lastSeenImageId;
+
+    @Column(name = "active", nullable = false)
+    private Boolean active;
 
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private OffsetDateTime updatedAt;
 }

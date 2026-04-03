@@ -68,6 +68,7 @@ sitepulse:
   skip-bad-quality: ${SKIP_BAD_QUALITY:false}
   sync-cron: ${SYNC_CRON:0 0/10 * * * *}
   detection-sweep-cron: ${DETECTION_SWEEP_CRON:0 5/10 * * * *}
+  detection-provider: ${DETECTION_PROVIDER:openai}
   analysis-cron: ${ANALYSIS_CRON:0 0 2 * * *}
   min-detections-active-hour: ${MIN_DETECTIONS_ACTIVE_HOUR:3}
   dropbox-token: ${DROPBOX_TOKEN:}

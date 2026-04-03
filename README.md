@@ -1,233 +1,297 @@
 # sitepulse-engine
 
-Backend for the SitePulse construction monitoring platform.
+Backend for the SitePulse construction monitoring platform, built with Domain-Driven Design.
 
-The system is now split into:
+## Modules
 
-- `sitepulse-engine-http-api`: public HTTP contracts, request DTOs, response DTOs
-- `sitepulse-engine-app`: runnable Spring Boot application with business logic, persistence, schedulers, and integrations
-- `python-yolo`: internal Python service used only for YOLO inference
+| Module | Purpose |
+|--------|---------|
+| `sitepulse-engine-http-api` | Public HTTP contracts — API interfaces, request DTOs, response DTOs |
+| `sitepulse-engine-app` | Runnable Spring Boot application — domain models, use cases, persistence, schedulers, integrations |
+| `python-yolo` | Internal Python FastAPI service used only for YOLO object-detection inference |
 
-Spring Boot is the public backend. Python is not a public API anymore.
+Spring Boot is the public backend. The Python service is an internal dependency, not a public API.
 
 ## Architecture
 
 ```text
 Dropbox
-  -> Spring sync pipeline
-  -> MinIO raw image storage
-  -> image registration in PostgreSQL
-  -> scheduled/manual detection
-  -> Python YOLO inference
-  -> detections + metrics + alerts in PostgreSQL
-  -> plan evaluation + AI reporting
-  -> REST API + Swagger from Spring Boot
+  → Spring sync pipeline
+  → MinIO raw image storage
+  → image registration in PostgreSQL
+  → scheduled/manual detection via Python YOLO
+  → detections + metrics + alerts in PostgreSQL
+  → plan evaluation + AI reporting via OpenAI
+  → REST API + Swagger UI from Spring Boot
 ```
 
-## End-To-End Pipeline
+### Domain-Driven Design
+
+The codebase follows a Ports & Adapters (hexagonal) architecture organized by bounded context. Each context owns its domain model, application use cases, infrastructure adapters, and web controllers.
+
+**Principles:**
+
+- **Bounded Context First** — each context is a top-level package with its own layered structure
+- **Domain Owns Behavior** — aggregates enforce invariants through guarded state transitions
+- **Application Layer Orchestrates** — use cases coordinate domain objects and ports; they never leak HTTP types
+- **Infrastructure Stays Replaceable** — persistence, external services, and schedulers sit behind domain ports
+- **CQRS-Lite** — read models are separated from write repositories where queries benefit from it
+- **Typed Domain Events** — cross-context communication uses `DomainEvent` published through Spring's `ApplicationEventPublisher`
+
+## Bounded Contexts
+
+| Context | Responsibility |
+|---------|---------------|
+| `project` | Project and camera CRUD, snapshot retrieval |
+| `sync` | Dropbox ingestion, image import into MinIO, sync job tracking |
+| `detection` | Object detection orchestration, YOLO gateway, image status lifecycle |
+| `metrics` | Daily/weekly metric aggregation, activity heatmaps |
+| `alert` | Alert creation, acknowledgment, resolution |
+| `plan` | Construction plan upload, milestone parsing, plan-vs-progress checking |
+| `report` | AI-powered progress report generation |
+| `visualization` | Detection overlay rendering |
+| `common` | Shared kernel — `ObjectStorage` port, `DomainEvent` marker, `DomainEventPublisher`, exception hierarchy |
+| `config` | Spring configuration beans (`SitePulseProperties`, `ShedLockConfig`, `CorsConfig`) |
+| `root` | Health/info root endpoint |
+
+## Package Structure Per Context
+
+Each bounded context follows this layered package structure:
+
+```text
+{context}/
+├── domain/
+│   ├── model/        Aggregates, entities, value objects, enums
+│   ├── port/         Repository interfaces, read model interfaces, gateway interfaces
+│   ├── service/      Domain services (pure business logic, no framework dependencies)
+│   ├── policy/       Domain policies (classification, detection rules)
+│   └── event/        Domain event classes
+├── application/
+│   ├── usecase/      Use cases (commands) and queries
+│   ├── command/      Command records (input to use cases)
+│   └── result/       Result records (output from use cases, never HTTP DTOs)
+├── infrastructure/
+│   ├── persistence/  JPA entities, Spring Data repositories, adapter implementations
+│   ├── external/     External service adapters (Dropbox, YOLO, OpenAI, MinIO)
+│   ├── scheduler/    ShedLock-backed scheduled tasks
+│   └── event/        Spring event listeners
+└── web/
+    └── Controller    Implements the HTTP API interface, maps HTTP ↔ application types
+```
+
+Not every context uses every sub-package. For example, `visualization` has no domain layer, and only `metrics` has `domain/policy/`.
+
+## End-to-End Pipeline
 
 ### 1. Project Setup
 
-- a project is created in the Spring API
-- cameras are assigned to the project
-- each camera can define `keyPrefix`, ROI polygon, and `dropOutside`
-- the project stores the Dropbox source path used for ingestion
+- A project is created via the REST API with a name, location, and Dropbox source path
+- Cameras are assigned to the project, each with an optional `keyPrefix`, ROI polygon, and `dropOutside` flag
 
 ### 2. Dropbox Sync
 
-Main code:
+**Key classes:** `RunProjectSyncUseCase`, `RunScheduledSyncUseCase`, `SyncFileParser`, `SyncJob`
 
-- [SyncService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\sync\application\SyncService.java)
-- [SyncProjectExecutor.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\sync\application\SyncProjectExecutor.java)
-- [DropboxClientService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\integration\dropbox\DropboxClientService.java)
-- [StorageService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\integration\storage\StorageService.java)
-
-Flow:
-
-1. scheduler or user triggers project sync
-2. Spring lists Dropbox date folders and files
-3. each image is downloaded from Dropbox
-4. the image is uploaded into MinIO
-5. an `images` row is created in PostgreSQL with project, key, bucket, capture time, and status
-6. a `sync_jobs` row tracks the overall job status
-
-Dropbox is only the ingestion source. After sync, MinIO becomes the internal source of truth for image binaries.
+1. Scheduler or user triggers a project sync
+2. `SyncJob.start()` creates a RUNNING job
+3. `SyncSource` (Dropbox adapter) lists date folders and image files
+4. `SyncFileParser` extracts capture timestamps from folder/file names
+5. Each image is downloaded from Dropbox and uploaded to MinIO via `ObjectStorage`
+6. An `images` row is registered in PostgreSQL through `ImageCatalogRepository`
+7. `SyncJob` tracks found/synced counts; `finish()` determines final DONE or FAILED status
+8. `ProjectSyncCompletedEvent` is published
 
 ### 3. Detection
 
-Main code:
+**Key classes:** `ProcessPendingImagesUseCase`, `RunOnDemandDetectionUseCase`, `DetectionImage`, `DetectionPostProcessor`
 
-- [DetectionService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\detection\application\DetectionService.java)
-- [YoloFeignClient.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\integration\yolo\YoloFeignClient.java)
-- [main.py](C:\workspace\learning\progress-tracker\sitepulse-engine\python-yolo\app\main.py)
+1. `DetectionImage` transitions: `NEW → PROCESSING → DONE | FAILED`
+2. Spring claims pending images and downloads bytes from MinIO
+3. Images are sent to the Python YOLO service via `DetectionGateway`
+4. `DetectionPostProcessor` applies confidence thresholds, min box area, ROI filtering, and quality warnings
+5. Detections are persisted; image status is updated
+6. `ImageDetectionCompletedEvent` is published
 
-Flow:
+### 4. Metrics and Alerts
 
-1. Spring claims `NEW` images from PostgreSQL
-2. Spring downloads the image bytes from MinIO
-3. Spring sends the image to the internal Python YOLO service through `/infer`
-4. Spring applies post-processing:
-   - confidence thresholds
-   - min box area
-   - ROI filtering
-   - image quality warnings
-5. Spring persists detections in PostgreSQL
-6. image status is updated to `DONE` or `FAILED`
+**Key classes:** `RunProjectAnalysisUseCase`, `DailyActivityAggregator`, `WeeklyRollupCalculator`, `RiskClassificationPolicy`, `StallDetectionPolicy`, `DeclineDetectionPolicy`
 
-The Python service does only inference. All orchestration and persistence stay in Spring.
-
-### 4. Metrics And Alerts
-
-Main code:
-
-- [AnalysisService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\metrics\application\AnalysisService.java)
-- [AlertService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\alert\application\AlertService.java)
-
-Flow:
-
-1. Spring reads detections and processed images from PostgreSQL
-2. it computes daily and weekly metrics
-3. it derives activity summaries and risks
-4. it creates or resolves alerts
+1. Detection activity samples are loaded from the read model
+2. `DailyActivityAggregator` computes people/vehicle counts and active hours per day
+3. `WeeklyRollupCalculator` computes progress deltas, activity indices, and risk levels per week
+4. `StallDetectionPolicy` checks for consecutive low-activity days → raises `stall` alerts
+5. `DeclineDetectionPolicy` checks for consecutive negative-progress weeks → raises `schedule` alerts
+6. Alerts auto-resolve when conditions clear
 
 ### 5. Construction Plan Tracking
 
-Main code:
+**Key classes:** `UploadConstructionPlanUseCase`, `EvaluateMilestoneUseCase`, `ConstructionPlan`, `PlanMilestone`
 
-- [PlanService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\plan\application\PlanService.java)
-- [PdfTextExtractor.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\integration\pdf\PdfTextExtractor.java)
-- [OpenAiService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\integration\openai\OpenAiService.java)
-
-Flow:
-
-1. user uploads a construction plan PDF
-2. Spring extracts text from the PDF
-3. OpenAI is used to parse milestones
-4. milestones are stored in PostgreSQL
-5. plan checks compare recent site images against expected progress
-6. delayed milestones can create schedule alerts
+1. User uploads a construction plan PDF
+2. `PlanDocumentTextExtractor` extracts raw text
+3. `PlanIntelligenceGateway` (OpenAI) parses milestones from the text
+4. `ConstructionPlan` transitions: `PROCESSING → READY | FAILED`
+5. Milestone checks compare site images against expected progress
+6. `PlanMilestone.applyAssessment()` updates status; delayed milestones generate alerts
 
 ### 6. Reporting
 
-Main code:
+**Key classes:** `GenerateProgressReportUseCase`, `ReportContextProvider`, `ReportGenerator`
 
-- [ReportService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\report\application\ReportService.java)
-
-Flow:
-
-1. Spring loads selected images from MinIO
-2. Spring loads metrics and milestone context from PostgreSQL
-3. OpenAI generates Markdown report content
-4. the report is stored in PostgreSQL
-5. report summaries and details are exposed through the REST API
+1. `ReportEvidenceImageProvider` gathers sample images from MinIO
+2. `ReportContextProvider` assembles metrics and milestone summaries (decoupled from other contexts)
+3. `ReportGenerator` (OpenAI) produces Markdown content
+4. `ProgressReport.create()` validates content and date ranges
+5. `ProgressReportGeneratedEvent` is published
 
 ### 7. Visualization
 
-Main code:
+**Key classes:** `GenerateDetectionVisualizationUseCase`
 
-- [VisualizationService.java](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\java\com\sitepulse\engine\visualization\application\VisualizationService.java)
+1. Original images are loaded from MinIO
+2. Persisted detections are loaded from PostgreSQL
+3. Bounding boxes are rendered onto images
+4. Visualizations are uploaded back to MinIO
 
-Flow:
+## HTTP API
 
-1. Spring loads original images from MinIO
-2. Spring loads persisted detections from PostgreSQL
-3. bounding boxes are rendered onto the image
-4. the generated visualization is uploaded back to MinIO under a derived key
+All API interfaces live in the `sitepulse-engine-http-api` module. Each bounded context has its own interface and controller.
 
-## Project Structure
+| Interface | Controller | Base Path | Endpoints |
+|-----------|-----------|-----------|-----------|
+| `ProjectApi` | `ProjectController` | `/api` | Project/camera CRUD, snapshots |
+| `SyncApi` | `SyncController` | `/api` | Sync status, trigger sync |
+| `DetectionApi` | `DetectionController` | — | Health check, on-demand detection |
+| `MetricsApi` | `MetricsController` | `/api` | Daily/weekly metrics, generate, heatmap |
+| `AlertApi` | `AlertController` | `/api` | List alerts, update alert status |
+| `PlanApi` | `PlanController` | `/api` | Plan upload, milestones, plan checks |
+| `ReportApi` | `ReportController` | `/api` | Generate report, list reports, report detail |
+| `VisualizationApi` | `VisualizationController` | `/api` | Generate detection visualizations |
+| `RootApi` | `RootController` | `/` | App info |
+
+## Domain Events
+
+Events implement the `DomainEvent` marker interface and are published through `DomainEventPublisher` (backed by Spring's `ApplicationEventPublisher`).
+
+| Event | Context | Triggered When |
+|-------|---------|---------------|
+| `ProjectSyncStartedEvent` | sync | A sync job begins |
+| `ProjectSyncCompletedEvent` | sync | A sync job finishes |
+| `ImageDetectionCompletedEvent` | detection | An image completes detection |
+| `MetricsRolledUpEvent` | metrics | Daily/weekly metrics are computed |
+| `AlertRaisedEvent` | alert | A new alert is created |
+| `AlertResolvedEvent` | alert | An alert is auto-resolved |
+| `MilestoneEvaluatedEvent` | plan | A milestone assessment is applied |
+| `MilestoneDelayedEvent` | plan | A milestone is marked delayed |
+| `ProgressReportGeneratedEvent` | report | A report is generated |
+
+## Value Objects
+
+| Value Object | Context | Invariant |
+|-------------|---------|-----------|
+| `BoundingBox` | detection | Exactly 4 coordinates, immutable |
+| `Confidence` | detection | Value between 0.0 and 1.0 |
+| `RoiPolygon` | project | At least 3 points |
+| `DropboxPath` | project | Must not be blank |
+| `StorageObjectRef` | sync | Non-blank bucket and key |
+| `ReportPeriod` | report | Start date not after end date |
+| `RiskLevel` | metrics | Enum: LOW, MEDIUM, HIGH |
+| `ReportType` | report | Enum: CUSTOM, WEEKLY, DAILY |
+
+## Domain Policies
+
+| Policy | Context | Logic |
+|--------|---------|-------|
+| `RiskClassificationPolicy` | metrics | Classifies risk based on activity drop vs rolling average |
+| `StallDetectionPolicy` | metrics | Detects 3+ consecutive low-activity days |
+| `DeclineDetectionPolicy` | metrics | Detects 2+ consecutive negative-progress weeks |
+
+## Project Layout
 
 ```text
 sitepulse-engine/
-|-- pom.xml
-|-- Dockerfile
-|-- docker-compose.yml
-|-- sitepulse-engine-http-api/
-|   |-- pom.xml
-|   `-- src/main/java/com/sitepulse/engine/http/
-|       |-- detection/
-|       |   |-- api/
-|       |   `-- dto/
-|       |-- project/
-|       |   |-- api/
-|       |   `-- dto/
-|       |-- plan/
-|       |   |-- api/
-|       |   `-- dto/
-|       |-- report/
-|       |   |-- api/
-|       |   `-- dto/
-|       |-- alert/
-|       |   `-- dto/
-|       `-- common/
-|           `-- dto/
-|-- sitepulse-engine-app/
-|   |-- pom.xml
-|   `-- src/main/
-|       |-- java/com/sitepulse/engine/
-|       |   |-- config/
-|       |   |-- common/
-|       |   |-- project/
-|       |   |-- sync/
-|       |   |-- detection/
-|       |   |-- metrics/
-|       |   |-- alert/
-|       |   |-- plan/
-|       |   |-- report/
-|       |   |-- visualization/
-|       |   |-- integration/
-|       |   |-- scheduler/
-|       |   `-- root/
-|       `-- resources/
-|           |-- application.yml
-|           |-- application-development.yml
-|           `-- db/migration/
-|-- python-yolo/
-|   |-- Dockerfile
-|   |-- requirements.txt
-|   `-- app/
-|-- seed.sql
-|-- roi_config.json
-|-- http-api-rework-plan.md
-`-- ddd-refactor-plan.md
+├── pom.xml                          Parent POM (Java 25, Spring Boot 3.4.4)
+├── Dockerfile
+├── docker-compose.yml
+├── sitepulse-engine-http-api/
+│   ├── pom.xml
+│   └── src/main/java/com/sitepulse/engine/http/
+│       ├── project/   api/ dto/
+│       ├── sync/      api/
+│       ├── detection/  api/ dto/
+│       ├── metrics/   api/ dto/
+│       ├── alert/     api/ dto/
+│       ├── plan/      api/ dto/
+│       ├── report/    api/ dto/
+│       ├── visualization/ api/ dto/
+│       ├── root/      api/ dto/
+│       └── common/    dto/
+├── sitepulse-engine-app/
+│   ├── pom.xml
+│   └── src/
+│       ├── main/
+│       │   ├── java/com/sitepulse/engine/
+│       │   │   ├── project/       domain/ application/ infrastructure/ web/
+│       │   │   ├── sync/          domain/ application/ infrastructure/ web/
+│       │   │   ├── detection/     domain/ application/ infrastructure/ web/
+│       │   │   ├── metrics/       domain/ application/ infrastructure/ web/
+│       │   │   ├── alert/         domain/ application/ infrastructure/ web/
+│       │   │   ├── plan/          domain/ application/ infrastructure/ web/
+│       │   │   ├── report/        domain/ application/ infrastructure/ web/
+│       │   │   ├── visualization/ application/ web/
+│       │   │   ├── common/        domain/ application/ infrastructure/ web/
+│       │   │   ├── config/
+│       │   │   └── root/          web/
+│       │   └── resources/
+│       │       ├── application.yml
+│       │       ├── application-development.yml
+│       │       └── db/migration/
+│       └── test/java/com/sitepulse/engine/
+│           ├── sync/domain/       SyncJobTest, SyncFileParserTest
+│           ├── detection/domain/  DetectionImageTest, BoundingBoxTest
+│           ├── alert/domain/      AlertTest
+│           ├── plan/domain/       ConstructionPlanTest, PlanMilestoneTest
+│           └── metrics/domain/    RiskClassificationPolicyTest, StallDetectionPolicyTest
+└── python-yolo/
+    ├── Dockerfile
+    ├── requirements.txt
+    └── app/main.py
 ```
 
 ## Tech Stack
 
-### Spring application
+### Spring Application
 
-- Java 25
-- Spring Boot
-- Spring Web
-- Spring Data JPA with Hibernate
-- Flyway
-- OpenFeign
-- springdoc OpenAPI / Swagger UI
+- **Java 25** with virtual threads enabled
+- **Spring Boot 3.4.4**
+- Spring Web, Spring Data JPA (Hibernate), Spring AOP
+- Flyway for database migrations
+- OpenFeign for HTTP clients
+- springdoc OpenAPI 2.8.6 / Swagger UI
 - PostgreSQL
-- MinIO
-- ShedLock
-- Lombok
+- MinIO (S3-compatible object storage)
+- ShedLock 5.16.0 for distributed scheduler locking
+- Lombok 1.18.44
 
-### YOLO service
+### YOLO Service
 
 - Python 3.12
-- FastAPI
-- Uvicorn
+- FastAPI + Uvicorn
 - Ultralytics YOLO
-- OpenCV
-- NumPy
+- OpenCV, NumPy
 
 ## Running Locally
 
-### Option 1: Recommended for development
+### Option 1: Development mode (recommended)
 
-Run infrastructure and YOLO in Docker, run Spring locally.
+Run infrastructure in Docker, Spring locally.
 
-1. Set Java 25.
+1. Set Java 25:
    ```powershell
    $env:JAVA_HOME='C:\Users\matus\.jdks\openjdk-25.0.1'
    $env:Path="$env:JAVA_HOME\bin;$env:Path"
    ```
-2. Start infrastructure and YOLO.
+2. Start infrastructure and YOLO:
    ```powershell
    docker compose up -d postgres minio python-yolo
    ```
@@ -237,11 +301,10 @@ Run infrastructure and YOLO in Docker, run Spring locally.
    mvn spring-boot:run "-Dspring-boot.run.profiles=development"
    ```
 
-You can also run from the repo root:
-
-```powershell
-mvn -pl sitepulse-engine-app spring-boot:run "-Dspring-boot.run.profiles=development"
-```
+   Or from the repo root:
+   ```powershell
+   mvn -pl sitepulse-engine-app spring-boot:run "-Dspring-boot.run.profiles=development"
+   ```
 
 ### Option 2: Full Docker Compose
 
@@ -251,80 +314,90 @@ docker compose up --build
 
 ## Local Endpoints
 
-- Spring API: `http://localhost:8080`
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
-- Python YOLO health: `http://localhost:8000/health`
-- MinIO API: `http://localhost:9001`
-- MinIO console: `http://localhost:9091`
-- PostgreSQL: `localhost:5432`
+| Service | URL |
+|---------|-----|
+| Spring API | `http://localhost:8080` |
+| Swagger UI | `http://localhost:8080/swagger-ui.html` |
+| OpenAPI JSON | `http://localhost:8080/v3/api-docs` |
+| Python YOLO health | `http://localhost:8000/health` |
+| MinIO API | `http://localhost:9001` |
+| MinIO console | `http://localhost:9091` |
+| PostgreSQL | `localhost:5432` |
 
 ## Configuration
 
-Main Spring configuration files:
+Main configuration files:
 
-- [application.yml](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\resources\application.yml)
-- [application-development.yml](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\resources\application-development.yml)
+- `sitepulse-engine-app/src/main/resources/application.yml`
+- `sitepulse-engine-app/src/main/resources/application-development.yml`
 
-Important properties:
+### Environment Variables
 
-- `POSTGRES_DSN`
-- `MINIO_ENDPOINT`
-- `MINIO_ACCESS_KEY`
-- `MINIO_SECRET_KEY`
-- `MINIO_BUCKET_DEFAULT`
-- `DROPBOX_TOKEN`
-- `DROPBOX_APP_KEY`
-- `DROPBOX_APP_SECRET`
-- `DROPBOX_REFRESH_TOKEN`
-- `OPENAI_API_KEY`
-- `OPENAI_MODEL`
-- `PYTHON_YOLO_BASE_URL`
-- `SYNC_CRON`
-- `DETECTION_SWEEP_CRON`
-- `CORS_ORIGINS`
+| Variable | Purpose |
+|----------|---------|
+| `POSTGRES_DSN` | PostgreSQL JDBC URL |
+| `MINIO_ENDPOINT` | MinIO endpoint URL |
+| `MINIO_ACCESS_KEY` | MinIO access key |
+| `MINIO_SECRET_KEY` | MinIO secret key |
+| `MINIO_BUCKET_DEFAULT` | Default MinIO bucket name |
+| `DROPBOX_TOKEN` | Dropbox OAuth token |
+| `DROPBOX_APP_KEY` | Dropbox app key |
+| `DROPBOX_APP_SECRET` | Dropbox app secret |
+| `DROPBOX_REFRESH_TOKEN` | Dropbox refresh token |
+| `OPENAI_API_KEY` | OpenAI API key |
+| `OPENAI_MODEL` | OpenAI model name |
+| `PYTHON_YOLO_BASE_URL` | URL of the Python YOLO service |
+| `SYNC_CRON` | Cron expression for Dropbox sync (default: every 10 min) |
+| `DETECTION_SWEEP_CRON` | Cron expression for detection sweep (default: every 10 min, offset 5) |
+| `ANALYSIS_CRON` | Cron expression for nightly analysis (default: 2 AM UTC) |
+| `CORS_ORIGINS` | Allowed CORS origins |
 
-Recommended local mode:
+### Scheduled Tasks
 
-- use the `development` Spring profile
-- point Spring to `localhost` services
-- keep the Docker profile using internal hostnames like `python-yolo:8000`
+| Scheduler | Cron Property | Lock Name | Purpose |
+|-----------|--------------|-----------|---------|
+| `SyncScheduler` | `sitepulse.sync-cron` | `dropboxSyncJob` | Periodic Dropbox sync |
+| `DetectionScheduler` | `sitepulse.detection-sweep-cron` | `detectionSweepJob` | Process pending images |
+| `MetricsScheduler` | `sitepulse.analysis-cron` | `nightlyAnalysisJob` | Nightly metrics rollup + alerts |
 
-## Database And Flyway
+All schedulers use ShedLock for distributed locking.
 
-Flyway is the only migration tool now.
+## Database and Flyway
 
-- migrations live in [db/migration](C:\workspace\learning\progress-tracker\sitepulse-engine\sitepulse-engine-app\src\main\resources\db\migration)
-- empty database: Flyway runs the baseline migration
-- existing Python-era database: Flyway baselining adopts the schema and continues from there
+Flyway is the only migration tool. Migrations live in `src/main/resources/db/migration/`.
 
-Going forward:
+- Empty database: Flyway runs from the baseline migration
+- Existing database: Flyway baselining adopts the schema and continues
 
-- do not use Alembic
-- add new schema changes only as Flyway migrations such as `V2__...sql`, `V3__...sql`
+New schema changes must be added as Flyway migrations (`V2__...sql`, `V3__...sql`, etc.).
 
-## API Design Notes
+## Testing
 
-- public REST contracts live in `sitepulse-engine-http-api`
-- Spring controllers in `sitepulse-engine-app` implement those contracts
-- project endpoints are under `/api/projects/...`
-- detection health and on-demand detection are served by Spring
-- the Python YOLO service is internal and should not be treated as a public backend
+Domain unit tests cover aggregate state machines, value object validation, domain services, and policies. Tests are pure JUnit 5 with no Spring context.
 
-## Development Notes
+| Test Class | What It Covers |
+|-----------|---------------|
+| `SyncJobTest` | SyncJob lifecycle — start, record, finish, error summary (14 tests) |
+| `AlertTest` | Alert state machine — create, acknowledge, resolve (9 tests) |
+| `DetectionImageTest` | Image status transitions — NEW → PROCESSING → DONE/FAILED (8 tests) |
+| `ConstructionPlanTest` | Plan lifecycle — upload, markReady, markFailed (5 tests) |
+| `PlanMilestoneTest` | Milestone assessment and detail updates (4 tests) |
+| `RiskClassificationPolicyTest` | Risk classification thresholds (5 tests) |
+| `StallDetectionPolicyTest` | Consecutive low-activity day detection (3 tests) |
+| `BoundingBoxTest` | Bounding box validation and immutability (4 tests) |
+| `SyncFileParserTest` | Date folder parsing, timestamp extraction, content type (8 tests) |
 
-- keep controllers thin
-- keep business logic in application/domain services, not in HTTP adapters
-- keep integration DTOs inside the app module
-- keep HTTP DTOs and API interfaces inside the HTTP API module
-- use enums instead of raw status strings where possible
-- prefer explicit result objects over `Map<String, Object>` in new code
+Run tests:
 
-## Current Refactor Direction
+```powershell
+mvn -pl sitepulse-engine-app test
+```
 
-Two planning documents describe the intended architecture work:
+## Development Guidelines
 
-- [http-api-rework-plan.md](C:\workspace\learning\progress-tracker\sitepulse-engine\http-api-rework-plan.md)
-- [ddd-refactor-plan.md](C:\workspace\learning\progress-tracker\sitepulse-engine\ddd-refactor-plan.md)
-
-The current code is modularized at the HTTP boundary and is being prepared for a gradual DDD-lite refactor, starting with the `sync` context.
+- **Controllers are thin** — they map HTTP types to application commands/results and back
+- **Use cases never see HTTP types** — they accept command records and return result records
+- **Domain models enforce their own invariants** — guarded state transitions, validated construction
+- **Cross-context communication uses domain events or ports** — never direct JPA repository imports across contexts
+- **Read models are separate from write repositories** — query-optimized adapters implement read model ports
+- **New code should include domain unit tests** — test aggregate behavior, not infrastructure wiring

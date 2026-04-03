@@ -5,5 +5,5 @@ import java.util.List;
 
 public interface DetectionRecordRepository {
 
-    void replaceDetections(Integer imageId, Integer projectId, String modelVersion, List<DetectedObject> detections);
+    void replaceDetections(Integer imageId, Integer projectId, String modelVersion, Integer analysisRunId, List<DetectedObject> detections);
 }

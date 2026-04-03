@@ -61,8 +61,9 @@ public class DetectionMetricsReadModelAdapter implements DetectionMetricsReadMod
     @Override
     public List<DetectionActivitySample> findDetectionActivityForDay(Integer projectId, LocalDate targetDate) {
         Query query = entityManager.createNativeQuery("""
-                SELECT d.class_name, d.image_id, i.captured_at
+                SELECT c.class_name, d.image_id, i.captured_at
                 FROM detections d
+                JOIN detection_classes c ON d.class_id = c.id
                 JOIN images i ON d.image_id = i.id
                 WHERE d.project_id = :projectId
                   AND DATE(i.captured_at) = :targetDate

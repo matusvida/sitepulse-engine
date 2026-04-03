@@ -88,4 +88,64 @@ public interface ImageRepository extends JpaRepository<ImageEntity, Integer> {
     default Optional<ImageEntity> findClosestSnapshot(Integer projectId, OffsetDateTime dayStart, OffsetDateTime dayEnd, OffsetDateTime midday) {
         return findClosestSnapshot(projectId, ImageStatus.DONE.name(), dayStart, dayEnd, midday);
     }
+
+    @Query(value = """
+            SELECT * FROM images
+            WHERE project_id = :projectId
+              AND camera_id = :cameraId
+              AND status = :status
+              AND captured_at < :capturedAt
+            ORDER BY captured_at DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<ImageEntity> findPreviousByCameraCapturedAt(
+            @Param("projectId") Integer projectId,
+            @Param("cameraId") Integer cameraId,
+            @Param("status") String status,
+            @Param("capturedAt") OffsetDateTime capturedAt
+    );
+
+    @Query(value = """
+            SELECT * FROM images
+            WHERE project_id = :projectId
+              AND camera_id = :cameraId
+              AND status = :status
+              AND id < :imageId
+            ORDER BY id DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<ImageEntity> findPreviousByCameraId(
+            @Param("projectId") Integer projectId,
+            @Param("cameraId") Integer cameraId,
+            @Param("status") String status,
+            @Param("imageId") Integer imageId
+    );
+
+    @Query(value = """
+            SELECT * FROM images
+            WHERE project_id = :projectId
+              AND status = :status
+              AND captured_at < :capturedAt
+            ORDER BY captured_at DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<ImageEntity> findPreviousByProjectCapturedAt(
+            @Param("projectId") Integer projectId,
+            @Param("status") String status,
+            @Param("capturedAt") OffsetDateTime capturedAt
+    );
+
+    @Query(value = """
+            SELECT * FROM images
+            WHERE project_id = :projectId
+              AND status = :status
+              AND id < :imageId
+            ORDER BY id DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<ImageEntity> findPreviousByProjectId(
+            @Param("projectId") Integer projectId,
+            @Param("status") String status,
+            @Param("imageId") Integer imageId
+    );
 }

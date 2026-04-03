@@ -5,7 +5,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sitepulse.engine.common.exception.ConfigurationException;
 import com.sitepulse.engine.common.exception.ExternalServiceException;
+import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiPrompts.Detection;
+import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiPrompts.Evaluation;
+import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiPrompts.Plan;
+import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiPrompts.Report;
 import com.sitepulse.engine.common.infrastructure.external.openai.dto.MilestoneEvaluationPayload;
+import com.sitepulse.engine.common.infrastructure.external.openai.dto.ConstructionDetectionPayload;
 import com.sitepulse.engine.common.infrastructure.external.openai.dto.OpenAiChatRequest;
 import com.sitepulse.engine.common.infrastructure.external.openai.dto.OpenAiChatResponse;
 import com.sitepulse.engine.common.infrastructure.external.openai.dto.OpenAiImagePayload;
@@ -22,39 +27,6 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class OpenAiService {
 
-    private static final String PLAN_SYSTEM_PROMPT = """
-            You are a construction project analyst. You receive the text extracted from
-            a construction plan PDF. Your job is to identify the key milestones / phases
-            and return them as a JSON array.
-
-            Each milestone object MUST have these fields:
-            - "week_number": integer
-            - "title": string
-            - "description": string
-            - "expected_state": string
-
-            Return ONLY a JSON object with field "milestones".
-            """;
-
-    private static final String REPORT_SYSTEM_PROMPT = """
-            You are a construction progress analyst for SitePulse.
-            Write a markdown progress report with:
-            1. Executive Summary
-            2. Visual Progress
-            3. Activity Analysis
-            4. Plan Compliance
-            5. Risk Assessment
-            6. Recommendations
-            """;
-
-    private static final String EVAL_SYSTEM_PROMPT = """
-            You are a construction milestone evaluator.
-            Return ONLY a JSON object with:
-            - "status": one of "completed", "on_track", "delayed", "not_started"
-            - "actual_state": 1-2 sentence description
-            - "confidence": float 0-1
-            """;
-
     private final OpenAiFeignClient openAiFeignClient;
     private final SitePulseProperties properties;
     private final ObjectMapper objectMapper;
@@ -65,7 +37,7 @@ public class OpenAiService {
                 new OpenAiChatRequest(
                         properties.openaiModel(),
                         List.of(
-                                Map.of("role", "system", "content", PLAN_SYSTEM_PROMPT),
+                                Map.of("role", "system", "content", Plan.SYSTEM_PROMPT),
                                 Map.of("role", "user", "content", "Here is the construction plan text:\n\n" + truncate(pdfText, 30_000))
                         ),
                         Map.of("type", "json_object"),
@@ -99,7 +71,7 @@ public class OpenAiService {
                 new OpenAiChatRequest(
                         properties.openaiModel(),
                         List.of(
-                                Map.of("role", "system", "content", REPORT_SYSTEM_PROMPT),
+                                Map.of("role", "system", "content", Report.SYSTEM_PROMPT),
                                 Map.of("role", "user", "content", contentParts)
                         ),
                         null,
@@ -127,7 +99,7 @@ public class OpenAiService {
                 new OpenAiChatRequest(
                         properties.openaiModel(),
                         List.of(
-                                Map.of("role", "system", "content", EVAL_SYSTEM_PROMPT),
+                                Map.of("role", "system", "content", Evaluation.SYSTEM_PROMPT),
                                 Map.of("role", "user", "content", contentParts)
                         ),
                         Map.of("type", "json_object"),
@@ -162,11 +134,46 @@ public class OpenAiService {
         }
     }
 
+    public ConstructionDetectionPayload detectConstructionObjects(byte[] imageBytes, String contextSummary) {
+        List<Map<String, Object>> contentParts = new ArrayList<>();
+        StringBuilder prompt = new StringBuilder(Detection.LEGACY_DETECTION_USER_PROMPT_TEMPLATE);
+        if (contextSummary != null && !contextSummary.isBlank()) {
+            prompt.append("\nPrevious tracks:\n").append(contextSummary).append('\n');
+        }
+        contentParts.add(Map.of("type", "text", "text", prompt.toString()));
+        contentParts.add(Map.of(
+                "type", "image_url",
+                "image_url", Map.of("url", "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(imageBytes), "detail", "low")
+        ));
+        OpenAiChatResponse response = openAiFeignClient.chat(
+                authorizationHeader(),
+                new OpenAiChatRequest(
+                        properties.openaiModel(),
+                        List.of(
+                                Map.of("role", "system", "content", Detection.SYSTEM_PROMPT),
+                                Map.of("role", "user", "content", contentParts)
+                        ),
+                        Map.of("type", "json_object"),
+                        0.0,
+                        4096
+                )
+        );
+        return readDetectionPayload(extractContent(response));
+    }
+
     private MilestoneEvaluationPayload readMilestoneEvaluation(String json) {
         try {
             return objectMapper.readValue(json, MilestoneEvaluationPayload.class);
         } catch (JsonProcessingException ex) {
             throw new ExternalServiceException("Failed to parse OpenAI response", ex);
+        }
+    }
+
+    private ConstructionDetectionPayload readDetectionPayload(String json) {
+        try {
+            return objectMapper.readValue(json, ConstructionDetectionPayload.class);
+        } catch (JsonProcessingException ex) {
+            throw new ExternalServiceException("Failed to parse OpenAI detection response", ex);
         }
     }
 

@@ -31,6 +31,7 @@ public record SitePulseProperties(
         boolean skipBadQuality,
         @NotBlank String syncCron,
         @NotBlank String detectionSweepCron,
+        @NotBlank String detectionProvider,
         @NotBlank String analysisCron,
         @NotNull Integer minDetectionsActiveHour,
         String dropboxToken,

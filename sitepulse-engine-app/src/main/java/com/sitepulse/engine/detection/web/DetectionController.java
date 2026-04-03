@@ -45,6 +45,6 @@ public class DetectionController implements DetectionApi {
     }
 
     private DetectionView toView(DetectedObjectResult d) {
-        return new DetectionView(d.classId(), d.className(), d.score(), d.bboxXyxy(), d.inRoi());
+        return new DetectionView(d.classId(), d.className(), d.score(), d.bboxXyxy(), d.inRoi(), d.trackId(), d.colorHint(), d.notes());
     }
 }
