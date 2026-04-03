@@ -21,10 +21,12 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OpenAiService {
 
     private final OpenAiFeignClient openAiFeignClient;
@@ -32,6 +34,7 @@ public class OpenAiService {
     private final ObjectMapper objectMapper;
 
     public List<ParsedPlanMilestonePayload> parsePlanMilestones(String pdfText) {
+        log.info("OpenAI request type=plan_milestones model={} text_chars={}", properties.openaiModel(), pdfText == null ? 0 : pdfText.length());
         OpenAiChatResponse response = openAiFeignClient.chat(
                 authorizationHeader(),
                 new OpenAiChatRequest(
@@ -45,7 +48,9 @@ public class OpenAiService {
                         4096
                 )
         );
-        return readMilestones(extractContent(response));
+        String content = extractContent(response);
+        log.info("OpenAI response type=plan_milestones model={} content_chars={} preview={}", properties.openaiModel(), content.length(), preview(content));
+        return readMilestones(content);
     }
 
     public String generateProgressReport(List<OpenAiImagePayload> imageData, String metricsContext, String milestonesContext) {
@@ -66,6 +71,7 @@ public class OpenAiService {
                     "image_url", Map.of("url", "data:image/jpeg;base64," + image.getBase64Content(), "detail", "low")
             ));
         }
+        log.info("OpenAI request type=progress_report model={} images={} metrics_chars={} milestones_chars={}", properties.openaiModel(), imageData == null ? 0 : imageData.size(), metricsContext == null ? 0 : metricsContext.length(), milestonesContext == null ? 0 : milestonesContext.length());
         OpenAiChatResponse response = openAiFeignClient.chat(
                 authorizationHeader(),
                 new OpenAiChatRequest(
@@ -79,7 +85,9 @@ public class OpenAiService {
                         4096
                 )
         );
-        return extractContent(response);
+        String content = extractContent(response);
+        log.info("OpenAI response type=progress_report model={} content_chars={} preview={}", properties.openaiModel(), content.length(), preview(content));
+        return content;
     }
 
     public MilestoneEvaluationPayload evaluateMilestone(String title, String expectedState, List<byte[]> images) {
@@ -94,6 +102,7 @@ public class OpenAiService {
                     "image_url", Map.of("url", "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(image), "detail", "low")
             ));
         }
+        log.info("OpenAI request type=milestone_eval model={} title_chars={} images={}", properties.openaiModel(), title == null ? 0 : title.length(), images == null ? 0 : images.size());
         OpenAiChatResponse response = openAiFeignClient.chat(
                 authorizationHeader(),
                 new OpenAiChatRequest(
@@ -107,7 +116,9 @@ public class OpenAiService {
                         1024
                 )
         );
-        return readMilestoneEvaluation(extractContent(response));
+        String content = extractContent(response);
+        log.info("OpenAI response type=milestone_eval model={} content_chars={} preview={}", properties.openaiModel(), content.length(), preview(content));
+        return readMilestoneEvaluation(content);
     }
 
     private String authorizationHeader() {
@@ -179,5 +190,13 @@ public class OpenAiService {
 
     private String truncate(String value, int maxLength) {
         return value.length() <= maxLength ? value : value.substring(0, maxLength);
+    }
+
+    private String preview(String value) {
+        if (value == null) {
+            return "";
+        }
+        String cleaned = value.replaceAll("\\s+", " ").trim();
+        return cleaned.length() <= 240 ? cleaned : cleaned.substring(0, 240) + "...";
     }
 }

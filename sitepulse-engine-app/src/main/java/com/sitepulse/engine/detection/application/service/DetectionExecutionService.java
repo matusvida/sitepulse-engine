@@ -6,6 +6,7 @@ import com.sitepulse.engine.detection.domain.model.DetectionHealth;
 import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.detection.domain.model.DetectionInference;
 import com.sitepulse.engine.detection.domain.model.DetectionProvider;
+import com.sitepulse.engine.detection.domain.port.CameraLookup;
 import com.sitepulse.engine.detection.domain.port.DetectionGateway;
 import com.sitepulse.engine.detection.infrastructure.external.openai.OpenAiDetectionGateway;
 import com.sitepulse.engine.detection.infrastructure.external.openai.OpenAiDetectionResult;
@@ -24,6 +25,7 @@ public class DetectionExecutionService {
     private final OpenAiDetectionGateway openAiDetectionGateway;
     private final DetectionContextService detectionContextService;
     private final DetectionAnalysisRunService detectionAnalysisRunService;
+    private final CameraLookup cameraLookup;
 
     public DetectionExecutionResult execute(DetectionImage image, byte[] imageBytes) {
         DetectionProvider provider = DetectionProvider.from(properties.detectionProvider());
@@ -45,9 +47,11 @@ public class DetectionExecutionService {
 
     private DetectionExecutionResult runOpenAiWithFallback(DetectionImage image, byte[] imageBytes, Integer previousImageId) {
         Optional<DetectionContext> context = detectionContextService.findPreviousContext(image);
+        Integer cameraWidth = image.getProjectId() == null ? null : cameraLookup.findImageWidth(image.getProjectId(), image.getKey());
+        Integer cameraHeight = image.getProjectId() == null ? null : cameraLookup.findImageHeight(image.getProjectId(), image.getKey());
         for (int attempt = 1; attempt <= 3; attempt++) {
             try {
-                OpenAiDetectionResult result = openAiDetectionGateway.infer(imageBytes, context.orElse(null));
+                OpenAiDetectionResult result = openAiDetectionGateway.infer(imageBytes, context.orElse(null), cameraWidth, cameraHeight);
                 Integer runId = detectionAnalysisRunService.recordRun(
                         image.getId(),
                         previousImageId,

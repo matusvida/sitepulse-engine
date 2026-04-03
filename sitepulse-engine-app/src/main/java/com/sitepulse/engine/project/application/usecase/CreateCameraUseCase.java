@@ -30,6 +30,8 @@ public class CreateCameraUseCase {
                         command.keyPrefix(),
                         command.roiPolygon(),
                         command.dropOutside(),
+                        null,
+                        null,
                         OffsetDateTime.now(ZoneOffset.UTC)
                 )
         );

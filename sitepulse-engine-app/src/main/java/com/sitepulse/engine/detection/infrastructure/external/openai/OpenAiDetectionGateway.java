@@ -10,7 +10,6 @@ import com.sitepulse.engine.common.infrastructure.external.openai.dto.OpenAiChat
 import com.sitepulse.engine.common.infrastructure.external.openai.dto.OpenAiChatResponse;
 import com.sitepulse.engine.detection.application.service.DetectionClassCatalog;
 import com.sitepulse.engine.detection.domain.model.DetectionContext;
-import com.sitepulse.engine.detection.domain.model.DetectionContextItem;
 import com.sitepulse.engine.detection.domain.model.DetectionInference;
 import com.sitepulse.engine.detection.domain.model.RawDetection;
 import com.sitepulse.engine.detection.infrastructure.external.openai.dto.OpenAiDetectionItem;
@@ -26,41 +25,43 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
+import java.util.stream.Collectors;
 import javax.imageio.ImageIO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class OpenAiDetectionGateway {
 
     private static final String PROMPT_VERSION = "v1";
-    private static final Set<String> COLOR_HINTS = Set.of(
-            "yellow",
-            "orange",
-            "white",
-            "red",
-            "blue",
-            "green",
-            "black",
-            "gray",
-            "unknown"
-    );
-
     private final OpenAiFeignClient openAiFeignClient;
     private final SitePulseProperties properties;
     private final ObjectMapper objectMapper;
     private final DetectionClassCatalog detectionClassCatalog;
 
-    public OpenAiDetectionResult infer(byte[] imageBytes, DetectionContext context) {
+    public OpenAiDetectionResult infer(byte[] imageBytes, DetectionContext context, Integer cameraWidth, Integer cameraHeight) {
         BufferedImage image = decode(imageBytes);
+        log.info(
+                "OpenAI detection request model={} prompt_version={} image={}x{} camera={}x{} context_image_id={} context_items={} classes={}",
+                properties.openaiModel(),
+                PROMPT_VERSION,
+                image.getWidth(),
+                image.getHeight(),
+                cameraWidth,
+                cameraHeight,
+                context == null ? null : context.imageId(),
+                context == null || context.detections() == null ? 0 : context.detections().size(),
+                summarizeClasses()
+        );
         long started = System.nanoTime();
         OpenAiChatResponse response = openAiFeignClient.chat(
                 authorizationHeader(),
                 new OpenAiChatRequest(
                         properties.openaiModel(),
-                        buildMessages(imageBytes, context),
+                        buildMessages(imageBytes, context, image.getWidth(), image.getHeight(), cameraWidth, cameraHeight),
                         Map.of("type", "json_object"),
                         0.0,
                         2048
@@ -68,8 +69,22 @@ public class OpenAiDetectionGateway {
         );
         double latencyMs = Duration.ofNanos(System.nanoTime() - started).toMillis();
         String json = extractContent(response);
+        log.info(
+                "OpenAI detection response model={} prompt_version={} latency_ms={} response_chars={} preview={}",
+                properties.openaiModel(),
+                PROMPT_VERSION,
+                latencyMs,
+                json.length(),
+                preview(json)
+        );
         OpenAiDetectionPayload payload = parsePayload(json);
         List<RawDetection> detections = toRawDetections(payload, image.getWidth(), image.getHeight());
+        log.debug(
+                "OpenAI detection parsed model={} prompt_version={} detections={}",
+                properties.openaiModel(),
+                PROMPT_VERSION,
+                detections.size()
+        );
         return new OpenAiDetectionResult(
                 new DetectionInference(
                         properties.openaiModel(),
@@ -87,9 +102,16 @@ public class OpenAiDetectionGateway {
         return PROMPT_VERSION;
     }
 
-    private List<Map<String, Object>> buildMessages(byte[] imageBytes, DetectionContext context) {
+    private List<Map<String, Object>> buildMessages(
+            byte[] imageBytes,
+            DetectionContext context,
+            int imageWidth,
+            int imageHeight,
+            Integer cameraWidth,
+            Integer cameraHeight
+    ) {
         String systemPrompt = buildSystemPrompt();
-        String userPrompt = buildUserPrompt(context);
+        String userPrompt = buildUserPrompt(context, imageWidth, imageHeight, cameraWidth, cameraHeight);
         List<Map<String, Object>> contentParts = new ArrayList<>();
         contentParts.add(Map.of("type", "text", "text", userPrompt));
         contentParts.add(Map.of(
@@ -106,23 +128,41 @@ public class OpenAiDetectionGateway {
         return Detection.SYSTEM_PROMPT;
     }
 
-    private String buildUserPrompt(DetectionContext context) {
+    private String buildUserPrompt(DetectionContext context, int imageWidth, int imageHeight, Integer cameraWidth, Integer cameraHeight) {
         String classesJson = serialize(toClassList());
-        String colorsJson = serialize(COLOR_HINTS.stream().sorted().toList());
         String contextJson = context == null ? "[]" : serialize(context.detections());
         String contextImageId = context == null ? "none" : String.valueOf(context.imageId());
-        return Detection.USER_PROMPT_TEMPLATE.formatted(classesJson, colorsJson, contextImageId, contextJson);
+        String prompt = Detection.USER_PROMPT_TEMPLATE.formatted(classesJson, contextImageId, contextJson);
+        if (cameraWidth != null && cameraHeight != null) {
+            return prompt + Detection.CAMERA_DIMENSIONS_TEMPLATE.formatted(cameraWidth, cameraHeight);
+        }
+        return prompt + Detection.FALLBACK_IMAGE_DIMENSIONS_TEMPLATE.formatted(imageWidth, imageHeight);
     }
 
     private List<Map<String, Object>> toClassList() {
         return detectionClassCatalog.byId().values().stream()
                 .sorted(Comparator.comparing(DetectionClassEntity::getId))
                 .filter(entry -> entry.getId() != 0)
-                .map(entry -> Map.<String, Object>of(
-                        "id", entry.getId(),
-                        "class_name", entry.getClassName()
-                ))
+                .map(entry -> toClassDescriptor(entry.getId(), entry.getClassName()))
                 .toList();
+    }
+
+    private Map<String, Object> toClassDescriptor(Integer classId, String className) {
+        Detection.ClassHint hint = Detection.CLASS_HINTS.get(className);
+        if (hint == null) {
+            return Map.of(
+                    "class_id", classId,
+                    "class_name", className
+            );
+        }
+        return Map.of(
+                "class_id", classId,
+                "class_name", className,
+                "typical_width_m", hint.typicalWidthM(),
+                "typical_height_m", hint.typicalHeightM(),
+                "typical_length_m", hint.typicalLengthM(),
+                "detection_hints", hint.detectionHints()
+        );
     }
 
     private List<RawDetection> toRawDetections(OpenAiDetectionPayload payload, int width, int height) {
@@ -201,8 +241,7 @@ public class OpenAiDetectionGateway {
         if (value == null || value.isBlank()) {
             return "unknown";
         }
-        String normalized = value.trim().toLowerCase(Locale.ROOT);
-        return COLOR_HINTS.contains(normalized) ? normalized : "unknown";
+        return value.trim().toLowerCase(Locale.ROOT);
     }
 
     private String normalizeNotes(String value) {
@@ -263,5 +302,19 @@ public class OpenAiDetectionGateway {
             throw new ExternalServiceException("OpenAI returned an empty response");
         }
         return response.getChoices().getFirst().getMessage().getContent();
+    }
+
+    private String summarizeClasses() {
+        return toClassList().stream()
+                .map(entry -> String.valueOf(entry.get("class_name")))
+                .collect(Collectors.joining(","));
+    }
+
+    private String preview(String value) {
+        if (value == null) {
+            return "";
+        }
+        String cleaned = value.replaceAll("\\s+", " ").trim();
+        return cleaned.length() <= 240 ? cleaned : cleaned.substring(0, 240) + "...";
     }
 }
