@@ -76,7 +76,7 @@ sitepulse:
   dropbox-app-secret: ${DROPBOX_APP_SECRET:}
   dropbox-refresh-token: ${DROPBOX_REFRESH_TOKEN:}
   openai-api-key: ${OPENAI_API_KEY:}
-  openai-model: ${OPENAI_MODEL:gpt-4o}
+  openai-model: ${OPENAI_MODEL:gpt-4.1}
   max-image-bytes: ${MAX_IMAGE_BYTES:52428800}
   python-yolo-base-url: ${PYTHON_YOLO_BASE_URL:http://python-yolo:8000}
 

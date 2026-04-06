@@ -18,6 +18,6 @@ public class DetectionScheduler {
     @SchedulerLock(name = "detectionSweepJob")
     public void runDetectionSweep() {
         log.info("Running scheduled detection sweep");
-        processPendingImagesUseCase.process(10);
+        processPendingImagesUseCase.process(20);
     }
 }

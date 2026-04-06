@@ -2,6 +2,7 @@ package com.sitepulse.engine.detection.infrastructure.persistence;
 
 import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.detection.domain.port.DetectionImageRepository;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,12 @@ public class DetectionImageRepositoryAdapter implements DetectionImageRepository
     @Override
     @Transactional
     public List<DetectionImage> claimPendingImages(int limit) {
-        return imageRepository.claimNewImages(limit).stream().map(this::toDomain).toList();
+        return imageRepository.claimNewImages(limit).stream()
+                .map(this::toDomain)
+                .sorted(Comparator
+                        .comparing(DetectionImage::getCapturedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(DetectionImage::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
     }
 
     @Override

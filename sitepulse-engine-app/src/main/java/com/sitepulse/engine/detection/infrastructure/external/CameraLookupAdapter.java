@@ -4,6 +4,7 @@ import com.sitepulse.engine.detection.domain.model.CameraRoiSettings;
 import com.sitepulse.engine.detection.domain.port.CameraLookup;
 import com.sitepulse.engine.project.domain.model.Camera;
 import com.sitepulse.engine.project.domain.port.CameraCatalogRepository;
+import java.util.Comparator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -15,18 +16,14 @@ public class CameraLookupAdapter implements CameraLookup {
 
     @Override
     public Integer findCameraIdByProjectAndKey(Integer projectId, String key) {
-        return cameraCatalogRepository.findByProjectId(projectId).stream()
-                .filter(camera -> camera.getKeyPrefix() != null && key.startsWith(camera.getKeyPrefix()))
-                .findFirst()
+        return findCamera(projectId, key)
                 .map(Camera::getId)
                 .orElse(null);
     }
 
     @Override
     public CameraRoiSettings findRoiSettings(Integer projectId, String key) {
-        return cameraCatalogRepository.findByProjectId(projectId).stream()
-                .filter(camera -> camera.getKeyPrefix() != null && key.startsWith(camera.getKeyPrefix()))
-                .findFirst()
+        return findCamera(projectId, key)
                 .map(camera -> new CameraRoiSettings(camera.getRoiPolygon(), Boolean.TRUE.equals(camera.getDropOutside())))
                 .orElse(null);
     }
@@ -44,6 +41,6 @@ public class CameraLookupAdapter implements CameraLookup {
     private java.util.Optional<Camera> findCamera(Integer projectId, String key) {
         return cameraCatalogRepository.findByProjectId(projectId).stream()
                 .filter(camera -> camera.getKeyPrefix() != null && key.startsWith(camera.getKeyPrefix()))
-                .findFirst();
+                .max(Comparator.comparingInt(camera -> camera.getKeyPrefix().length()));
     }
 }

@@ -5,6 +5,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -12,13 +13,14 @@ public interface ImageRepository extends JpaRepository<ImageEntity, Integer> {
 
     boolean existsByBucketAndKey(String bucket, String key);
 
+    @Modifying
     @Query(value = """
             UPDATE images
             SET status = :processingStatus, updated_at = NOW()
             WHERE id IN (
                 SELECT id FROM images
                 WHERE status = 'NEW'
-                ORDER BY id
+                ORDER BY captured_at ASC NULLS LAST, id ASC
                 LIMIT :limit
                 FOR UPDATE SKIP LOCKED
             )
