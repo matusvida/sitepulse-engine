@@ -5,7 +5,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sitepulse.engine.common.exception.ConfigurationException;
 import com.sitepulse.engine.common.exception.ExternalServiceException;
+import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiPrompts.Detection;
+import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiPrompts.Evaluation;
+import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiPrompts.Plan;
+import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiPrompts.Report;
 import com.sitepulse.engine.common.infrastructure.external.openai.dto.MilestoneEvaluationPayload;
+import com.sitepulse.engine.common.infrastructure.external.openai.dto.ConstructionDetectionPayload;
 import com.sitepulse.engine.common.infrastructure.external.openai.dto.OpenAiChatRequest;
 import com.sitepulse.engine.common.infrastructure.external.openai.dto.OpenAiChatResponse;
 import com.sitepulse.engine.common.infrastructure.external.openai.dto.OpenAiImagePayload;
@@ -16,56 +21,26 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OpenAiService {
-
-    private static final String PLAN_SYSTEM_PROMPT = """
-            You are a construction project analyst. You receive the text extracted from
-            a construction plan PDF. Your job is to identify the key milestones / phases
-            and return them as a JSON array.
-
-            Each milestone object MUST have these fields:
-            - "week_number": integer
-            - "title": string
-            - "description": string
-            - "expected_state": string
-
-            Return ONLY a JSON object with field "milestones".
-            """;
-
-    private static final String REPORT_SYSTEM_PROMPT = """
-            You are a construction progress analyst for SitePulse.
-            Write a markdown progress report with:
-            1. Executive Summary
-            2. Visual Progress
-            3. Activity Analysis
-            4. Plan Compliance
-            5. Risk Assessment
-            6. Recommendations
-            """;
-
-    private static final String EVAL_SYSTEM_PROMPT = """
-            You are a construction milestone evaluator.
-            Return ONLY a JSON object with:
-            - "status": one of "completed", "on_track", "delayed", "not_started"
-            - "actual_state": 1-2 sentence description
-            - "confidence": float 0-1
-            """;
 
     private final OpenAiFeignClient openAiFeignClient;
     private final SitePulseProperties properties;
     private final ObjectMapper objectMapper;
 
     public List<ParsedPlanMilestonePayload> parsePlanMilestones(String pdfText) {
+        log.info("OpenAI request type=plan_milestones model={} text_chars={}", properties.openaiModel(), pdfText == null ? 0 : pdfText.length());
         OpenAiChatResponse response = openAiFeignClient.chat(
                 authorizationHeader(),
                 new OpenAiChatRequest(
                         properties.openaiModel(),
                         List.of(
-                                Map.of("role", "system", "content", PLAN_SYSTEM_PROMPT),
+                                Map.of("role", "system", "content", Plan.SYSTEM_PROMPT),
                                 Map.of("role", "user", "content", "Here is the construction plan text:\n\n" + truncate(pdfText, 30_000))
                         ),
                         Map.of("type", "json_object"),
@@ -73,7 +48,9 @@ public class OpenAiService {
                         4096
                 )
         );
-        return readMilestones(extractContent(response));
+        String content = extractContent(response);
+        log.info("OpenAI response type=plan_milestones model={} content_chars={} preview={}", properties.openaiModel(), content.length(), preview(content));
+        return readMilestones(content);
     }
 
     public String generateProgressReport(List<OpenAiImagePayload> imageData, String metricsContext, String milestonesContext) {
@@ -94,12 +71,13 @@ public class OpenAiService {
                     "image_url", Map.of("url", "data:image/jpeg;base64," + image.getBase64Content(), "detail", "low")
             ));
         }
+        log.info("OpenAI request type=progress_report model={} images={} metrics_chars={} milestones_chars={}", properties.openaiModel(), imageData == null ? 0 : imageData.size(), metricsContext == null ? 0 : metricsContext.length(), milestonesContext == null ? 0 : milestonesContext.length());
         OpenAiChatResponse response = openAiFeignClient.chat(
                 authorizationHeader(),
                 new OpenAiChatRequest(
                         properties.openaiModel(),
                         List.of(
-                                Map.of("role", "system", "content", REPORT_SYSTEM_PROMPT),
+                                Map.of("role", "system", "content", Report.SYSTEM_PROMPT),
                                 Map.of("role", "user", "content", contentParts)
                         ),
                         null,
@@ -107,7 +85,9 @@ public class OpenAiService {
                         4096
                 )
         );
-        return extractContent(response);
+        String content = extractContent(response);
+        log.info("OpenAI response type=progress_report model={} content_chars={} preview={}", properties.openaiModel(), content.length(), preview(content));
+        return content;
     }
 
     public MilestoneEvaluationPayload evaluateMilestone(String title, String expectedState, List<byte[]> images) {
@@ -122,12 +102,13 @@ public class OpenAiService {
                     "image_url", Map.of("url", "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(image), "detail", "low")
             ));
         }
+        log.info("OpenAI request type=milestone_eval model={} title_chars={} images={}", properties.openaiModel(), title == null ? 0 : title.length(), images == null ? 0 : images.size());
         OpenAiChatResponse response = openAiFeignClient.chat(
                 authorizationHeader(),
                 new OpenAiChatRequest(
                         properties.openaiModel(),
                         List.of(
-                                Map.of("role", "system", "content", EVAL_SYSTEM_PROMPT),
+                                Map.of("role", "system", "content", Evaluation.SYSTEM_PROMPT),
                                 Map.of("role", "user", "content", contentParts)
                         ),
                         Map.of("type", "json_object"),
@@ -135,7 +116,9 @@ public class OpenAiService {
                         1024
                 )
         );
-        return readMilestoneEvaluation(extractContent(response));
+        String content = extractContent(response);
+        log.info("OpenAI response type=milestone_eval model={} content_chars={} preview={}", properties.openaiModel(), content.length(), preview(content));
+        return readMilestoneEvaluation(content);
     }
 
     private String authorizationHeader() {
@@ -162,6 +145,33 @@ public class OpenAiService {
         }
     }
 
+    public ConstructionDetectionPayload detectConstructionObjects(byte[] imageBytes, String contextSummary) {
+        List<Map<String, Object>> contentParts = new ArrayList<>();
+        StringBuilder prompt = new StringBuilder(Detection.LEGACY_DETECTION_USER_PROMPT_TEMPLATE);
+        if (contextSummary != null && !contextSummary.isBlank()) {
+            prompt.append("\nPrevious tracks:\n").append(contextSummary).append('\n');
+        }
+        contentParts.add(Map.of("type", "text", "text", prompt.toString()));
+        contentParts.add(Map.of(
+                "type", "image_url",
+                "image_url", Map.of("url", "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(imageBytes), "detail", "low")
+        ));
+        OpenAiChatResponse response = openAiFeignClient.chat(
+                authorizationHeader(),
+                new OpenAiChatRequest(
+                        properties.openaiModel(),
+                        List.of(
+                                Map.of("role", "system", "content", Detection.SYSTEM_PROMPT),
+                                Map.of("role", "user", "content", contentParts)
+                        ),
+                        Map.of("type", "json_object"),
+                        0.0,
+                        4096
+                )
+        );
+        return readDetectionPayload(extractContent(response));
+    }
+
     private MilestoneEvaluationPayload readMilestoneEvaluation(String json) {
         try {
             return objectMapper.readValue(json, MilestoneEvaluationPayload.class);
@@ -170,7 +180,23 @@ public class OpenAiService {
         }
     }
 
+    private ConstructionDetectionPayload readDetectionPayload(String json) {
+        try {
+            return objectMapper.readValue(json, ConstructionDetectionPayload.class);
+        } catch (JsonProcessingException ex) {
+            throw new ExternalServiceException("Failed to parse OpenAI detection response", ex);
+        }
+    }
+
     private String truncate(String value, int maxLength) {
         return value.length() <= maxLength ? value : value.substring(0, maxLength);
+    }
+
+    private String preview(String value) {
+        if (value == null) {
+            return "";
+        }
+        String cleaned = value.replaceAll("\\s+", " ").trim();
+        return cleaned.length() <= 240 ? cleaned : cleaned.substring(0, 240) + "...";
     }
 }

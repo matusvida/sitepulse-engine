@@ -2,7 +2,8 @@ package com.sitepulse.engine.plan.domain.model;
 
 public enum PlanStatus {
     PROCESSING,
-    READY;
+    READY,
+    FAILED;
 
     public static PlanStatus fromValue(String value) {
         if (value == null || value.isBlank()) {

@@ -52,6 +52,12 @@ public class CameraEntity {
     @Column(name = "key_prefix", length = 512)
     private String keyPrefix;
 
+    @Column(name = "image_width")
+    private Integer imageWidth;
+
+    @Column(name = "image_height")
+    private Integer imageHeight;
+
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
 }

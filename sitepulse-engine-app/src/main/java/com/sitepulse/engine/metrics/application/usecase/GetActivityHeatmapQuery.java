@@ -14,7 +14,7 @@ public class GetActivityHeatmapQuery {
 
     public List<ActivityHeatmapPointResult> get(Integer projectId) {
         return detectionMetricsReadModel.getActivityHeatmap(projectId).stream()
-                .map(row -> new ActivityHeatmapPointResult(row.getDayOfWeek(), row.getHour(), row.getCount()))
+                .map(row -> new ActivityHeatmapPointResult(row.dayOfWeek(), row.hour(), row.count()))
                 .toList();
     }
 }

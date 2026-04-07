@@ -11,11 +11,10 @@ import com.sitepulse.engine.sync.domain.event.ProjectSyncCompletedEvent;
 import com.sitepulse.engine.sync.domain.port.ImageCatalogRepository;
 import com.sitepulse.engine.sync.domain.port.SyncJobRepository;
 import com.sitepulse.engine.sync.domain.port.SyncSource;
+import com.sitepulse.engine.sync.domain.service.SyncFileParser;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,14 +24,13 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class RunProjectSyncUseCase {
 
-    private static final Pattern DATE_FOLDER = Pattern.compile("^(\\d{4})[-_]?(\\d{2})[-_]?(\\d{2})$");
-    private static final Pattern FILE_TIMESTAMP = Pattern.compile("(\\d{4})-(\\d{2})-(\\d{2})[_ ](\\d{2})[_:](\\d{2})[_:](\\d{2})");
-
     private final SyncSource syncSource;
     private final ObjectStorage objectStorage;
     private final SyncJobRepository syncJobRepository;
     private final ImageCatalogRepository imageCatalogRepository;
     private final DomainEventPublisher domainEventPublisher;
+
+    private final SyncFileParser syncFileParser = new SyncFileParser();
 
     public void run(Project project) {
         log.info("Sync started for projectId={} dropboxPath={}", project.getId(), project.getDropboxPath());
@@ -40,7 +38,7 @@ public class RunProjectSyncUseCase {
 
         try {
             for (String folder : syncSource.listSubfolders(project.getDropboxPath())) {
-                LocalDate folderDate = parseDateFolder(folder);
+                LocalDate folderDate = syncFileParser.parseDateFolder(folder).orElse(null);
                 if (folderDate == null) {
                     continue;
                 }
@@ -94,42 +92,9 @@ public class RunProjectSyncUseCase {
                 projectId,
                 objectStorage.defaultBucket(),
                 folder + "/" + sourceImageFile.name(),
-                parseCapturedAt(sourceImageFile.name(), folderDate),
-                contentType(sourceImageFile.name())
+                syncFileParser.parseCapturedAt(sourceImageFile.name(), folderDate),
+                syncFileParser.contentType(sourceImageFile.name())
         );
-    }
-
-    private LocalDate parseDateFolder(String folderName) {
-        Matcher matcher = DATE_FOLDER.matcher(folderName);
-        if (!matcher.matches()) {
-            return null;
-        }
-        return LocalDate.of(
-                Integer.parseInt(matcher.group(1)),
-                Integer.parseInt(matcher.group(2)),
-                Integer.parseInt(matcher.group(3))
-        );
-    }
-
-    private OffsetDateTime parseCapturedAt(String fileName, LocalDate folderDate) {
-        Matcher matcher = FILE_TIMESTAMP.matcher(fileName);
-        if (!matcher.find()) {
-            return folderDate.atStartOfDay().atOffset(ZoneOffset.UTC);
-        }
-        return OffsetDateTime.of(
-                Integer.parseInt(matcher.group(1)),
-                Integer.parseInt(matcher.group(2)),
-                Integer.parseInt(matcher.group(3)),
-                Integer.parseInt(matcher.group(4)),
-                Integer.parseInt(matcher.group(5)),
-                Integer.parseInt(matcher.group(6)),
-                0,
-                ZoneOffset.UTC
-        );
-    }
-
-    private String contentType(String fileName) {
-        return fileName.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
     }
 
     private String safeMessage(Throwable ex) {

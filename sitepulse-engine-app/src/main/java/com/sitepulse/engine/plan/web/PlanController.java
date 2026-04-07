@@ -11,6 +11,7 @@ import com.sitepulse.engine.http.plan.dto.PlanMilestoneView;
 import com.sitepulse.engine.http.plan.dto.PlanUploadView;
 import com.sitepulse.engine.common.exception.ValidationException;
 import com.sitepulse.engine.plan.application.command.UpdatePlanMilestoneCommand;
+import com.sitepulse.engine.plan.application.command.UploadPlanCommand;
 import com.sitepulse.engine.plan.application.result.PlanCheckResult;
 import com.sitepulse.engine.plan.application.result.PlanMilestoneResult;
 import com.sitepulse.engine.plan.application.result.PlanUploadResult;
@@ -20,6 +21,7 @@ import com.sitepulse.engine.plan.application.usecase.RunPlanCheckUseCase;
 import com.sitepulse.engine.plan.application.usecase.UpdatePlanMilestoneUseCase;
 import com.sitepulse.engine.plan.application.usecase.UploadConstructionPlanUseCase;
 import com.sitepulse.engine.plan.domain.model.MilestoneStatus;
+import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,6 +31,8 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class PlanController implements PlanApi {
 
+    private static final long MAX_PDF_SIZE = 20L * 1024 * 1024;
+
     private final UploadConstructionPlanUseCase uploadConstructionPlanUseCase;
     private final GetLatestPlanQuery getLatestPlanQuery;
     private final ListPlanMilestonesQuery listPlanMilestonesQuery;
@@ -37,13 +41,19 @@ public class PlanController implements PlanApi {
 
     @Override
     public PlanUploadView upload(Integer projectId, MultipartFile file) {
-        PlanUploadResult result = uploadConstructionPlanUseCase.upload(projectId, file);
-        return new PlanUploadView(
-                result.getPlanId(),
-                result.getFilename(),
-                result.getMilestonesCreated(),
-                result.getStatus().toPersistenceValue()
-        );
+        validateFile(file);
+        try {
+            UploadPlanCommand command = new UploadPlanCommand(projectId, file.getOriginalFilename(), file.getBytes());
+            PlanUploadResult result = uploadConstructionPlanUseCase.upload(command);
+            return new PlanUploadView(
+                    result.getPlanId(),
+                    result.getFilename(),
+                    result.getMilestonesCreated(),
+                    result.getStatus().toPersistenceValue()
+            );
+        } catch (IOException ex) {
+            throw new ValidationException("Failed to read uploaded file");
+        }
     }
 
     @Override
@@ -108,6 +118,15 @@ public class PlanController implements PlanApi {
             return MilestoneStatus.fromValue(value);
         } catch (IllegalArgumentException ex) {
             throw new ValidationException("Invalid status. Must be one of: [not_started, on_track, delayed, completed]");
+        }
+    }
+
+    private void validateFile(MultipartFile file) {
+        if (file.isEmpty() || file.getOriginalFilename() == null || !file.getOriginalFilename().toLowerCase().endsWith(".pdf")) {
+            throw new ValidationException("Only PDF files are accepted");
+        }
+        if (file.getSize() > MAX_PDF_SIZE) {
+            throw new ValidationException("File too large (max 20 MB)");
         }
     }
 

@@ -1,9 +1,8 @@
 package com.sitepulse.engine.project.application.usecase;
 
-import com.sitepulse.engine.http.project.dto.ProjectView;
 import com.sitepulse.engine.project.application.ProjectLookupService;
-import com.sitepulse.engine.project.domain.model.Project;
-import com.sitepulse.engine.project.domain.port.ProjectReadModel;
+import com.sitepulse.engine.project.application.ProjectResultMapper;
+import com.sitepulse.engine.project.application.result.ProjectResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -12,22 +11,9 @@ import org.springframework.stereotype.Service;
 public class GetProjectQuery {
 
     private final ProjectLookupService projectLookupService;
-    private final ProjectReadModel projectReadModel;
+    private final ProjectResultMapper projectResultMapper;
 
-    public ProjectView get(Integer projectId) {
-        return toView(projectLookupService.requireProject(projectId));
-    }
-
-    private ProjectView toView(Project project) {
-        return new ProjectView(
-                String.valueOf(project.getId()),
-                project.getName(),
-                project.getLocation() == null ? "" : project.getLocation(),
-                0,
-                projectReadModel.countCameras(project.getId()),
-                projectReadModel.latestSnapshotAt(project.getId()).map(OffsetDateTime -> OffsetDateTime.toString()).orElse(""),
-                project.getDropboxPath(),
-                project.getCreatedAt() == null ? null : project.getCreatedAt().toString()
-        );
+    public ProjectResult get(Integer projectId) {
+        return projectResultMapper.toResult(projectLookupService.requireProject(projectId));
     }
 }

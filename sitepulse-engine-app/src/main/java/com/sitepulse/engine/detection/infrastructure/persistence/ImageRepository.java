@@ -1,10 +1,11 @@
 package com.sitepulse.engine.detection.infrastructure.persistence;
 
-import com.sitepulse.engine.detection.domain.ImageStatus;
+import com.sitepulse.engine.detection.domain.model.ImageStatus;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -12,13 +13,14 @@ public interface ImageRepository extends JpaRepository<ImageEntity, Integer> {
 
     boolean existsByBucketAndKey(String bucket, String key);
 
+    @Modifying
     @Query(value = """
             UPDATE images
             SET status = :processingStatus, updated_at = NOW()
             WHERE id IN (
                 SELECT id FROM images
                 WHERE status = 'NEW'
-                ORDER BY id
+                ORDER BY captured_at ASC NULLS LAST, id ASC
                 LIMIT :limit
                 FOR UPDATE SKIP LOCKED
             )
@@ -88,4 +90,64 @@ public interface ImageRepository extends JpaRepository<ImageEntity, Integer> {
     default Optional<ImageEntity> findClosestSnapshot(Integer projectId, OffsetDateTime dayStart, OffsetDateTime dayEnd, OffsetDateTime midday) {
         return findClosestSnapshot(projectId, ImageStatus.DONE.name(), dayStart, dayEnd, midday);
     }
+
+    @Query(value = """
+            SELECT * FROM images
+            WHERE project_id = :projectId
+              AND camera_id = :cameraId
+              AND status = :status
+              AND captured_at < :capturedAt
+            ORDER BY captured_at DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<ImageEntity> findPreviousByCameraCapturedAt(
+            @Param("projectId") Integer projectId,
+            @Param("cameraId") Integer cameraId,
+            @Param("status") String status,
+            @Param("capturedAt") OffsetDateTime capturedAt
+    );
+
+    @Query(value = """
+            SELECT * FROM images
+            WHERE project_id = :projectId
+              AND camera_id = :cameraId
+              AND status = :status
+              AND id < :imageId
+            ORDER BY id DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<ImageEntity> findPreviousByCameraId(
+            @Param("projectId") Integer projectId,
+            @Param("cameraId") Integer cameraId,
+            @Param("status") String status,
+            @Param("imageId") Integer imageId
+    );
+
+    @Query(value = """
+            SELECT * FROM images
+            WHERE project_id = :projectId
+              AND status = :status
+              AND captured_at < :capturedAt
+            ORDER BY captured_at DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<ImageEntity> findPreviousByProjectCapturedAt(
+            @Param("projectId") Integer projectId,
+            @Param("status") String status,
+            @Param("capturedAt") OffsetDateTime capturedAt
+    );
+
+    @Query(value = """
+            SELECT * FROM images
+            WHERE project_id = :projectId
+              AND status = :status
+              AND id < :imageId
+            ORDER BY id DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<ImageEntity> findPreviousByProjectId(
+            @Param("projectId") Integer projectId,
+            @Param("status") String status,
+            @Param("imageId") Integer imageId
+    );
 }

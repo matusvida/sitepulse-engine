@@ -17,6 +17,8 @@ public class Camera {
     private List<List<Double>> roiPolygon;
     private Boolean dropOutside;
     private final String keyPrefix;
+    private final Integer imageWidth;
+    private final Integer imageHeight;
     private final OffsetDateTime createdAt;
 
     private Camera(
@@ -26,6 +28,8 @@ public class Camera {
             List<List<Double>> roiPolygon,
             Boolean dropOutside,
             String keyPrefix,
+            Integer imageWidth,
+            Integer imageHeight,
             OffsetDateTime createdAt
     ) {
         this.id = id;
@@ -34,6 +38,8 @@ public class Camera {
         this.roiPolygon = roiPolygon;
         this.dropOutside = dropOutside;
         this.keyPrefix = keyPrefix;
+        this.imageWidth = imageWidth;
+        this.imageHeight = imageHeight;
         this.createdAt = createdAt;
     }
 
@@ -43,9 +49,11 @@ public class Camera {
             String keyPrefix,
             List<List<Double>> roiPolygon,
             Boolean dropOutside,
+            Integer imageWidth,
+            Integer imageHeight,
             OffsetDateTime createdAt
     ) {
-        return new Camera(null, projectId, name, roiPolygon, dropOutside == null ? Boolean.TRUE : dropOutside, normalize(keyPrefix), createdAt);
+        return new Camera(null, projectId, name, roiPolygon, dropOutside == null ? Boolean.TRUE : dropOutside, normalize(keyPrefix), imageWidth, imageHeight, createdAt);
     }
 
     public static Camera restore(
@@ -55,9 +63,11 @@ public class Camera {
             List<List<Double>> roiPolygon,
             Boolean dropOutside,
             String keyPrefix,
+            Integer imageWidth,
+            Integer imageHeight,
             OffsetDateTime createdAt
     ) {
-        return new Camera(id, projectId, name, roiPolygon, dropOutside, keyPrefix, createdAt);
+        return new Camera(id, projectId, name, roiPolygon, dropOutside, keyPrefix, imageWidth, imageHeight, createdAt);
     }
 
     public void update(List<List<Double>> roiPolygon, Boolean dropOutside) {

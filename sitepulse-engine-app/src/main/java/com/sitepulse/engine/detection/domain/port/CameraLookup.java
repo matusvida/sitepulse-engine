@@ -7,4 +7,8 @@ public interface CameraLookup {
     Integer findCameraIdByProjectAndKey(Integer projectId, String key);
 
     CameraRoiSettings findRoiSettings(Integer projectId, String key);
+
+    Integer findImageWidth(Integer projectId, String key);
+
+    Integer findImageHeight(Integer projectId, String key);
 }

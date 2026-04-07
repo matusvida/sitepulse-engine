@@ -1,8 +1,9 @@
 package com.sitepulse.engine.project.application.usecase;
 
-import com.sitepulse.engine.http.project.dto.CameraView;
 import com.sitepulse.engine.project.application.ProjectLookupService;
+import com.sitepulse.engine.project.application.ProjectResultMapper;
 import com.sitepulse.engine.project.application.command.CreateCameraCommand;
+import com.sitepulse.engine.project.application.result.CameraResult;
 import com.sitepulse.engine.project.domain.model.Camera;
 import com.sitepulse.engine.project.domain.port.CameraCatalogRepository;
 import java.time.OffsetDateTime;
@@ -17,9 +18,10 @@ public class CreateCameraUseCase {
 
     private final ProjectLookupService projectLookupService;
     private final CameraCatalogRepository cameraCatalogRepository;
+    private final ProjectResultMapper projectResultMapper;
 
     @Transactional
-    public CameraView create(CreateCameraCommand command) {
+    public CameraResult create(CreateCameraCommand command) {
         projectLookupService.requireProject(command.projectId());
         Camera camera = cameraCatalogRepository.save(
                 Camera.create(
@@ -28,17 +30,11 @@ public class CreateCameraUseCase {
                         command.keyPrefix(),
                         command.roiPolygon(),
                         command.dropOutside(),
+                        null,
+                        null,
                         OffsetDateTime.now(ZoneOffset.UTC)
                 )
         );
-        return new CameraView(
-                camera.getId(),
-                camera.getProjectId(),
-                camera.getName(),
-                camera.getRoiPolygon(),
-                camera.getDropOutside(),
-                camera.getKeyPrefix(),
-                camera.getCreatedAt() == null ? null : camera.getCreatedAt().toString()
-        );
+        return projectResultMapper.toResult(camera);
     }
 }

@@ -72,11 +72,20 @@ public class PlanMilestone {
         }
     }
 
-    public void updateStatus(MilestoneStatus status) {
-        this.status = status;
+    public void updateStatus(MilestoneStatus newStatus) {
+        if (newStatus == null || newStatus == status) {
+            return;
+        }
+        if (status == MilestoneStatus.COMPLETED && newStatus != MilestoneStatus.COMPLETED) {
+            throw new IllegalStateException("Cannot move a completed milestone back to " + newStatus);
+        }
+        this.status = newStatus;
     }
 
     public void applyAssessment(MilestoneAssessment assessment, OffsetDateTime checkedAt) {
+        if (status == MilestoneStatus.COMPLETED) {
+            throw new IllegalStateException("Cannot apply assessment to a completed milestone");
+        }
         this.status = assessment.status();
         this.actualState = assessment.actualState();
         this.checkedAt = checkedAt;

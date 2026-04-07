@@ -1,10 +1,11 @@
 package com.sitepulse.engine.detection.infrastructure.persistence;
 
 import com.sitepulse.engine.common.util.JsonUtils;
+import com.sitepulse.engine.detection.application.service.DetectionClassCatalog;
 import com.sitepulse.engine.detection.domain.model.DetectedObject;
 import com.sitepulse.engine.detection.domain.model.StoredImage;
 import com.sitepulse.engine.detection.domain.port.ProcessedImageReadModel;
-import com.sitepulse.engine.detection.domain.ImageStatus;
+import com.sitepulse.engine.detection.domain.model.ImageStatus;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -18,6 +19,7 @@ public class ProcessedImageReadModelAdapter implements ProcessedImageReadModel {
     private final ImageRepository imageRepository;
     private final DetectionRepository detectionRepository;
     private final JsonUtils jsonUtils;
+    private final DetectionClassCatalog detectionClassCatalog;
 
     @Override
     public List<OffsetDateTime> findSnapshotCapturedAtValues(Integer projectId) {
@@ -56,12 +58,18 @@ public class ProcessedImageReadModelAdapter implements ProcessedImageReadModel {
     }
 
     private DetectedObject toDetectedObject(DetectionEntity detectionEntity) {
+        String className = detectionClassCatalog.findById(detectionEntity.getClassId())
+                .map(DetectionClassEntity::getClassName)
+                .orElse("unknown");
         return new DetectedObject(
                 detectionEntity.getClassId(),
-                detectionEntity.getClassName(),
+                className,
                 detectionEntity.getScore(),
                 jsonUtils.readDoubleList(detectionEntity.getBboxXyxy()),
-                detectionEntity.getInRoi() == null ? null : Boolean.valueOf(detectionEntity.getInRoi())
+                detectionEntity.getInRoi() == null ? null : Boolean.valueOf(detectionEntity.getInRoi()),
+                detectionEntity.getTrackId(),
+                detectionEntity.getColorHint(),
+                detectionEntity.getNotes()
         );
     }
 }

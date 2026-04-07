@@ -1,6 +1,6 @@
 package com.sitepulse.engine.detection.infrastructure.persistence;
 
-import com.sitepulse.engine.detection.domain.ImageStatus;
+import com.sitepulse.engine.detection.domain.model.ImageStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

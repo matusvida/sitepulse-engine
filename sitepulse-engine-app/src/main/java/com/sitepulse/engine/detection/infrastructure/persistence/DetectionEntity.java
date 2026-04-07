@@ -44,17 +44,26 @@ public class DetectionEntity {
     @Column(name = "class_id")
     private Integer classId;
 
-    @Column(name = "class_name", length = 128)
-    private String className;
-
     @Column
     private Double score;
 
     @Column(name = "bbox_xyxy", columnDefinition = "text")
     private String bboxXyxy;
 
+    @Column(name = "track_id")
+    private Integer trackId;
+
+    @Column(name = "analysis_run_id")
+    private Integer analysisRunId;
+
     @Column(name = "in_roi", length = 8)
     private String inRoi;
+
+    @Column(name = "color_hint", length = 32)
+    private String colorHint;
+
+    @Column(name = "notes", columnDefinition = "text")
+    private String notes;
 
     @Column(name = "created_at")
     private OffsetDateTime createdAt;

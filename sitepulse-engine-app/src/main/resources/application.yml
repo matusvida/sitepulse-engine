@@ -68,14 +68,15 @@ sitepulse:
   skip-bad-quality: ${SKIP_BAD_QUALITY:false}
   sync-cron: ${SYNC_CRON:0 0/10 * * * *}
   detection-sweep-cron: ${DETECTION_SWEEP_CRON:0 5/10 * * * *}
-  analysis-hour: ${ANALYSIS_HOUR:2}
+  detection-provider: ${DETECTION_PROVIDER:openai}
+  analysis-cron: ${ANALYSIS_CRON:0 0 2 * * *}
   min-detections-active-hour: ${MIN_DETECTIONS_ACTIVE_HOUR:3}
   dropbox-token: ${DROPBOX_TOKEN:}
   dropbox-app-key: ${DROPBOX_APP_KEY:}
   dropbox-app-secret: ${DROPBOX_APP_SECRET:}
   dropbox-refresh-token: ${DROPBOX_REFRESH_TOKEN:}
   openai-api-key: ${OPENAI_API_KEY:}
-  openai-model: ${OPENAI_MODEL:gpt-4o}
+  openai-model: ${OPENAI_MODEL:gpt-4.1}
   max-image-bytes: ${MAX_IMAGE_BYTES:52428800}
   python-yolo-base-url: ${PYTHON_YOLO_BASE_URL:http://python-yolo:8000}
 

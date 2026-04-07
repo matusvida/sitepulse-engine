@@ -9,4 +9,6 @@ public interface ObjectStorage {
     void upload(String bucket, String key, byte[] data, String contentType);
 
     String defaultBucket();
+
+    String presign(String bucket, String key);
 }

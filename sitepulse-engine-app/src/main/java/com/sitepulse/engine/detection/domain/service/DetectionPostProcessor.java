@@ -122,7 +122,10 @@ public class DetectionPostProcessor {
                     detection.className(),
                     round(detection.score()),
                     detection.bboxXyxy().stream().map(this::round).toList(),
-                    inRoi
+                    inRoi,
+                    detection.trackId(),
+                    detection.colorHint(),
+                    detection.notes()
             ));
         }
         if (filteredConf > 0) {

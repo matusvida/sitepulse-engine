@@ -1,7 +1,8 @@
 package com.sitepulse.engine.detection.application.usecase;
 
+import com.sitepulse.engine.detection.application.result.DetectionHealthResult;
+import com.sitepulse.engine.detection.application.service.DetectionExecutionService;
 import com.sitepulse.engine.detection.domain.model.DetectionHealth;
-import com.sitepulse.engine.detection.domain.port.DetectionGateway;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -9,9 +10,10 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class GetDetectionHealthQuery {
 
-    private final DetectionGateway detectionGateway;
+    private final DetectionExecutionService detectionExecutionService;
 
-    public DetectionHealth get() {
-        return detectionGateway.health();
+    public DetectionHealthResult get() {
+        DetectionHealth health = detectionExecutionService.health();
+        return new DetectionHealthResult(health.status(), health.modelLoaded(), health.modelVersion());
     }
 }

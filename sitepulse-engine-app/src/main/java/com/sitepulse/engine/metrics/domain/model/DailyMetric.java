@@ -43,6 +43,9 @@ public class DailyMetric {
     }
 
     public void updateCounts(int peopleCount, int vehicleCount, double activeHours) {
+        if (peopleCount < 0 || vehicleCount < 0 || activeHours < 0) {
+            throw new IllegalArgumentException("Metric counts must not be negative");
+        }
         this.peopleCount = peopleCount;
         this.vehicleCount = vehicleCount;
         this.activeHours = activeHours;

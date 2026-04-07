@@ -21,4 +21,7 @@ public class DetectionView {
     private Double score;
     private List<Double> bboxXyxy;
     private Boolean inRoi;
+    private Integer trackId;
+    private String colorHint;
+    private String notes;
 }

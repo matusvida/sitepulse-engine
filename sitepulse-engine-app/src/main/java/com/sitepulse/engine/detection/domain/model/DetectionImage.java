@@ -1,19 +1,23 @@
 package com.sitepulse.engine.detection.domain.model;
 
-import com.sitepulse.engine.detection.domain.ImageStatus;
 import java.time.OffsetDateTime;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 
 @Getter
-@ToString
-@EqualsAndHashCode
+@ToString(onlyExplicitlyIncluded = true)
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class DetectionImage {
 
+    @EqualsAndHashCode.Include
+    @ToString.Include
     private final Integer id;
+
     private final String bucket;
     private final String key;
+
+    @ToString.Include
     private ImageStatus status;
     private final Integer projectId;
     private final Integer cameraId;
@@ -43,6 +47,17 @@ public class DetectionImage {
         this.updatedAt = updatedAt;
     }
 
+    public static DetectionImage createNew(
+            String bucket,
+            String key,
+            Integer projectId,
+            Integer cameraId,
+            OffsetDateTime capturedAt,
+            OffsetDateTime now
+    ) {
+        return new DetectionImage(null, bucket, key, ImageStatus.NEW, projectId, cameraId, capturedAt, now, now);
+    }
+
     public static DetectionImage restore(
             Integer id,
             String bucket,
@@ -68,12 +83,26 @@ public class DetectionImage {
         return new DetectionImage(null, bucket, key, ImageStatus.DONE, projectId, cameraId, capturedAt, now, now);
     }
 
+    public void markProcessing(OffsetDateTime now) {
+        if (status != ImageStatus.NEW) {
+            throw new IllegalStateException("Can only start processing images in NEW state, current: " + status);
+        }
+        status = ImageStatus.PROCESSING;
+        updatedAt = now;
+    }
+
     public void markDone(OffsetDateTime now) {
+        if (status != ImageStatus.PROCESSING) {
+            throw new IllegalStateException("Can only mark done images in PROCESSING state, current: " + status);
+        }
         status = ImageStatus.DONE;
         updatedAt = now;
     }
 
     public void markFailed(OffsetDateTime now) {
+        if (status != ImageStatus.PROCESSING) {
+            throw new IllegalStateException("Can only mark failed images in PROCESSING state, current: " + status);
+        }
         status = ImageStatus.FAILED;
         updatedAt = now;
     }
