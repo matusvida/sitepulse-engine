@@ -336,10 +336,15 @@ Main configuration files:
 | Variable | Purpose |
 |----------|---------|
 | `POSTGRES_DSN` | PostgreSQL JDBC URL |
+| `STORAGE_PROVIDER` | Storage backend provider (`minio` or `gcs`) |
+| `STORAGE_DEFAULT_BUCKET` | Default object storage bucket |
+| `STORAGE_PRESIGN_TTL_MINUTES` | Signed URL expiration in minutes |
 | `MINIO_ENDPOINT` | MinIO endpoint URL |
+| `MINIO_PUBLIC_ENDPOINT` | MinIO public endpoint used for browser-accessible signed URLs |
 | `MINIO_ACCESS_KEY` | MinIO access key |
 | `MINIO_SECRET_KEY` | MinIO secret key |
-| `MINIO_BUCKET_DEFAULT` | Default MinIO bucket name |
+| `GCS_PROJECT_ID` | GCP project id for GCS uploads and signed URLs |
+| `GCS_CREDENTIALS_PATH` | Path to the GCS service account JSON file |
 | `DROPBOX_TOKEN` | Dropbox OAuth token |
 | `DROPBOX_APP_KEY` | Dropbox app key |
 | `DROPBOX_APP_SECRET` | Dropbox app secret |

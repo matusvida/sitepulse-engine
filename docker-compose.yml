@@ -41,10 +41,12 @@ services:
       - path: .env
         required: false
     environment:
+      STORAGE_PROVIDER: minio
+      STORAGE_DEFAULT_BUCKET: tower-tl
       MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: http://localhost:9001
       MINIO_ACCESS_KEY: admin
       MINIO_SECRET_KEY: password123
-      MINIO_BUCKET_DEFAULT: tower-tl
       ENABLE_ROI: "true"
       POSTGRES_DSN: postgresql://sitepulse:sitepulse@postgres:5432/sitepulse
       DROPBOX_APP_KEY: ${DROPBOX_APP_KEY:-}

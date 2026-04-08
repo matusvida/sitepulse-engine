@@ -97,12 +97,19 @@ class ListProjectSnapshotsQueryTest {
         return new SitePulseProperties(
                 "postgresql://sitepulse:sitepulse@localhost:5432/sitepulse",
                 "http://localhost:3000",
-                "http://minio:9000",
-                "http://localhost:9001",
-                "admin",
-                "password123",
+                "minio",
                 "tower-tl",
                 60,
+                new SitePulseProperties.MinioProperties(
+                        "http://minio:9000",
+                        "http://localhost:9001",
+                        "admin",
+                        "password123"
+                ),
+                new SitePulseProperties.GcsProperties(
+                        "",
+                        ""
+                ),
                 "yolov8x.pt",
                 0.35,
                 "{}",

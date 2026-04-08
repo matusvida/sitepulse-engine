@@ -2,7 +2,6 @@ package com.sitepulse.engine.detection.application.usecase;
 
 import com.sitepulse.engine.common.domain.port.ObjectStorage;
 import com.sitepulse.engine.common.exception.ValidationException;
-import com.sitepulse.engine.config.SitePulseProperties;
 import com.sitepulse.engine.detection.application.command.RunOnDemandDetectionCommand;
 import com.sitepulse.engine.detection.application.result.DetectedObjectResult;
 import com.sitepulse.engine.detection.application.result.DetectionOutcomeResult;
@@ -34,7 +33,6 @@ public class RunOnDemandDetectionUseCase {
     private final DetectionRecordRepository detectionRecordRepository;
     private final CameraLookup cameraLookup;
     private final DetectionPostProcessor detectionPostProcessor;
-    private final SitePulseProperties properties;
 
     public DetectionOutcomeResult run(RunOnDemandDetectionCommand command) {
         DetectionTarget target = resolveTarget(command);
@@ -96,13 +94,15 @@ public class RunOnDemandDetectionUseCase {
 
     private DetectionTarget resolveTarget(RunOnDemandDetectionCommand command) {
         if (command.s3Url() != null && !command.s3Url().isBlank()) {
-            if (!command.s3Url().startsWith("s3://")) {
-                throw new ValidationException("Invalid S3 URL");
+            String raw = command.s3Url().trim();
+            int schemeSeparator = raw.indexOf("://");
+            if (schemeSeparator < 1 || schemeSeparator + 3 >= raw.length()) {
+                throw new ValidationException("Invalid storage URL");
             }
-            String raw = command.s3Url().substring("s3://".length());
+            raw = raw.substring(schemeSeparator + 3);
             int slash = raw.indexOf('/');
-            if (slash < 0) {
-                throw new ValidationException("Invalid S3 URL");
+            if (slash < 1 || slash + 1 >= raw.length()) {
+                throw new ValidationException("Invalid storage URL");
             }
             return new DetectionTarget(raw.substring(0, slash), raw.substring(slash + 1), null, null);
         }
@@ -110,7 +110,7 @@ public class RunOnDemandDetectionUseCase {
             throw new ValidationException("Either 'key' or 's3_url' must be provided");
         }
         return new DetectionTarget(
-                command.bucket() == null || command.bucket().isBlank() ? properties.minioBucketDefault() : command.bucket(),
+                command.bucket() == null || command.bucket().isBlank() ? objectStorage.defaultBucket() : command.bucket(),
                 command.key(),
                 null,
                 null

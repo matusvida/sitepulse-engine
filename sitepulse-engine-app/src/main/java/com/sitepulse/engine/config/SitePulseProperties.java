@@ -16,12 +16,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record SitePulseProperties(
         @NotBlank String postgresDsn,
         @NotBlank String corsOrigins,
-        @NotBlank String minioEndpoint,
-        @NotBlank String minioPublicEndpoint,
-        @NotBlank String minioAccessKey,
-        @NotBlank String minioSecretKey,
-        @NotBlank String minioBucketDefault,
+        @NotBlank String storageProvider,
+        @NotBlank String storageDefaultBucket,
         @NotNull Integer storagePresignTtlMinutes,
+        MinioProperties minio,
+        GcsProperties gcs,
         @NotBlank String yoloModelPath,
         @NotNull Double confThreshold,
         @NotBlank String perClassThresholdsJson,
@@ -53,6 +52,20 @@ public record SitePulseProperties(
 
     public Duration storagePresignTtl() {
         return Duration.ofMinutes(storagePresignTtlMinutes);
+    }
+
+    public record MinioProperties(
+            String endpoint,
+            String publicEndpoint,
+            String accessKey,
+            String secretKey
+    ) {
+    }
+
+    public record GcsProperties(
+            String projectId,
+            String credentialsPath
+    ) {
     }
 
     public Map<String, Double> perClassThresholds(ObjectMapper objectMapper) {

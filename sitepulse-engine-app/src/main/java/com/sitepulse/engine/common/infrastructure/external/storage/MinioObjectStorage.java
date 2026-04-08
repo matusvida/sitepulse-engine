@@ -17,40 +17,43 @@ import io.minio.errors.InvalidResponseException;
 import io.minio.errors.ServerException;
 import io.minio.errors.XmlParserException;
 import io.minio.http.Method;
-import java.io.IOException;
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import jakarta.annotation.PostConstruct;
-import java.time.Duration;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 @Service
 @Slf4j
-public class StorageService implements ObjectStorage {
+@ConditionalOnProperty(prefix = "sitepulse", name = "storage-provider", havingValue = "minio", matchIfMissing = true)
+public class MinioObjectStorage implements ObjectStorage {
 
     private final SitePulseProperties properties;
     private final MinioClient minioClient;
     private final MinioClient presignClient;
 
-    public StorageService(SitePulseProperties properties) {
+    public MinioObjectStorage(SitePulseProperties properties) {
         this.properties = properties;
+        SitePulseProperties.MinioProperties minio = requireMinioProperties(properties);
         this.minioClient = MinioClient.builder()
-                .endpoint(properties.minioEndpoint())
-                .credentials(properties.minioAccessKey(), properties.minioSecretKey())
+                .endpoint(requireValue(minio.endpoint(), "MINIO_ENDPOINT"))
+                .credentials(requireValue(minio.accessKey(), "MINIO_ACCESS_KEY"), requireValue(minio.secretKey(), "MINIO_SECRET_KEY"))
                 .build();
         this.presignClient = MinioClient.builder()
-                .endpoint(properties.minioPublicEndpoint())
-                .credentials(properties.minioAccessKey(), properties.minioSecretKey())
+                .endpoint(requireValue(minio.publicEndpoint(), "MINIO_PUBLIC_ENDPOINT"))
+                .credentials(requireValue(minio.accessKey(), "MINIO_ACCESS_KEY"), requireValue(minio.secretKey(), "MINIO_SECRET_KEY"))
                 .build();
     }
 
     @PostConstruct
     public void ensureDefaultBucketExists() {
-        String bucket = properties.minioBucketDefault();
+        String bucket = properties.storageDefaultBucket();
         try {
             boolean exists = minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucket).build());
             if (!exists) {
@@ -87,7 +90,7 @@ public class StorageService implements ObjectStorage {
                  | NoSuchAlgorithmException
                  | ServerException
                  | XmlParserException ex) {
-            throw new ExternalServiceException("Failed to download s3://" + bucket + "/" + key, ex);
+            throw new ExternalServiceException("Failed to download object bucket=" + bucket + " key=" + key, ex);
         }
     }
 
@@ -113,7 +116,7 @@ public class StorageService implements ObjectStorage {
                  | ServerException
                  | XmlParserException ex) {
             log.error("Failed to upload object to MinIO bucket={} key={}", bucket, key, ex);
-            throw new ExternalServiceException("Failed to upload s3://" + bucket + "/" + key, ex);
+            throw new ExternalServiceException("Failed to upload object bucket=" + bucket + " key=" + key, ex);
         }
     }
 
@@ -137,7 +140,7 @@ public class StorageService implements ObjectStorage {
 
     @Override
     public String defaultBucket() {
-        return properties.minioBucketDefault();
+        return properties.storageDefaultBucket();
     }
 
     @Override
@@ -160,7 +163,26 @@ public class StorageService implements ObjectStorage {
                  | NoSuchAlgorithmException
                  | ServerException
                  | XmlParserException ex) {
-            throw new ExternalServiceException("Failed to presign s3://" + bucket + "/" + key, ex);
+            throw new ExternalServiceException("Failed to presign object bucket=" + bucket + " key=" + key, ex);
         }
+    }
+
+    private static SitePulseProperties.MinioProperties requireMinioProperties(SitePulseProperties properties) {
+        SitePulseProperties.MinioProperties minio = properties.minio();
+        if (minio == null) {
+            throw new IllegalStateException("Missing MinIO configuration");
+        }
+        requireValue(minio.endpoint(), "MINIO_ENDPOINT");
+        requireValue(minio.publicEndpoint(), "MINIO_PUBLIC_ENDPOINT");
+        requireValue(minio.accessKey(), "MINIO_ACCESS_KEY");
+        requireValue(minio.secretKey(), "MINIO_SECRET_KEY");
+        return minio;
+    }
+
+    private static String requireValue(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException("Missing required storage configuration: " + name);
+        }
+        return value;
     }
 }
