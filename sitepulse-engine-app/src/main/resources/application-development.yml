@@ -7,9 +7,11 @@ spring:
 sitepulse:
   postgres-dsn: postgresql://sitepulse:sitepulse@localhost:5432/sitepulse
   minio-endpoint: http://localhost:9001
+  minio-public-endpoint: http://localhost:9001
   minio-access-key: admin
   minio-secret-key: password123
   minio-bucket-default: tower-tl
+  storage-presign-ttl-minutes: 60
   sync-cron: 0 8/10 * * * *
   detection-sweep-cron: 0 6/10 * * * *
   detection-provider: openai

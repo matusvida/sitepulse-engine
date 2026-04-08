@@ -1,5 +1,7 @@
 package com.sitepulse.engine.common.domain.port;
 
+import java.time.Duration;
+
 public interface ObjectStorage {
 
     byte[] download(String bucket, String key);
@@ -10,5 +12,5 @@ public interface ObjectStorage {
 
     String defaultBucket();
 
-    String presign(String bucket, String key);
+    String presign(String bucket, String key, Duration expiresAfter);
 }

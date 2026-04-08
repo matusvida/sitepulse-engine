@@ -5,6 +5,7 @@ import com.sitepulse.engine.http.project.dto.CameraCreateRequest;
 import com.sitepulse.engine.http.project.dto.CameraUpdateRequest;
 import com.sitepulse.engine.http.project.dto.CameraView;
 import com.sitepulse.engine.http.project.dto.ProjectCreateRequest;
+import com.sitepulse.engine.http.project.dto.ProjectSnapshotView;
 import com.sitepulse.engine.http.project.dto.ProjectUpdateRequest;
 import com.sitepulse.engine.http.project.dto.ProjectView;
 import com.sitepulse.engine.project.application.command.CreateCameraCommand;
@@ -13,11 +14,13 @@ import com.sitepulse.engine.project.application.command.UpdateCameraCommand;
 import com.sitepulse.engine.project.application.command.UpdateProjectCommand;
 import com.sitepulse.engine.project.application.result.CameraResult;
 import com.sitepulse.engine.project.application.result.ProjectResult;
+import com.sitepulse.engine.project.application.result.ProjectSnapshotMetadataResult;
 import com.sitepulse.engine.project.application.result.ProjectSnapshotResult;
 import com.sitepulse.engine.project.application.usecase.CreateCameraUseCase;
 import com.sitepulse.engine.project.application.usecase.CreateProjectUseCase;
 import com.sitepulse.engine.project.application.usecase.GetProjectSnapshotQuery;
 import com.sitepulse.engine.project.application.usecase.GetProjectQuery;
+import com.sitepulse.engine.project.application.usecase.ListProjectSnapshotsQuery;
 import com.sitepulse.engine.project.application.usecase.ListSnapshotDatesQuery;
 import com.sitepulse.engine.project.application.usecase.ListProjectCamerasQuery;
 import com.sitepulse.engine.project.application.usecase.ListProjectsQuery;
@@ -43,6 +46,7 @@ public class ProjectController implements ProjectApi {
     private final CreateCameraUseCase createCameraUseCase;
     private final UpdateCameraUseCase updateCameraUseCase;
     private final ListSnapshotDatesQuery listSnapshotDatesQuery;
+    private final ListProjectSnapshotsQuery listProjectSnapshotsQuery;
     private final GetProjectSnapshotQuery getProjectSnapshotQuery;
 
     @Override
@@ -92,6 +96,13 @@ public class ProjectController implements ProjectApi {
     }
 
     @Override
+    public List<ProjectSnapshotView> snapshots(Integer projectId) {
+        return listProjectSnapshotsQuery.list(projectId).stream()
+                .map(this::toProjectSnapshotView)
+                .toList();
+    }
+
+    @Override
     public ResponseEntity<byte[]> snapshot(Integer projectId, @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         ProjectSnapshotResult snapshot = getProjectSnapshotQuery.get(projectId, date);
         return ResponseEntity.ok().contentType(MediaType.parseMediaType(snapshot.getMediaType())).body(snapshot.getContent());
@@ -119,6 +130,15 @@ public class ProjectController implements ProjectApi {
                 result.dropOutside(),
                 result.keyPrefix(),
                 result.createdAt() == null ? null : result.createdAt().toString()
+        );
+    }
+
+    private ProjectSnapshotView toProjectSnapshotView(ProjectSnapshotMetadataResult result) {
+        return new ProjectSnapshotView(
+                result.date().toString(),
+                result.url(),
+                result.expiresAt(),
+                result.mediaType()
         );
     }
 }

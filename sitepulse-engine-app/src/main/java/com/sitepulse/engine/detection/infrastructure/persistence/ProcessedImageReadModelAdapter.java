@@ -27,6 +27,13 @@ public class ProcessedImageReadModelAdapter implements ProcessedImageReadModel {
     }
 
     @Override
+    public List<StoredImage> findRepresentativeSnapshots(Integer projectId) {
+        return imageRepository.findRepresentativeSnapshots(projectId).stream()
+                .map(this::toStoredImage)
+                .toList();
+    }
+
+    @Override
     public Optional<StoredImage> findClosestSnapshot(Integer projectId, OffsetDateTime dayStart, OffsetDateTime dayEnd, OffsetDateTime midday) {
         return imageRepository.findClosestSnapshot(projectId, dayStart, dayEnd, midday).map(this::toStoredImage);
     }

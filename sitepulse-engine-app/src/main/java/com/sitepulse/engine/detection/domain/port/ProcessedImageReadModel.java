@@ -10,6 +10,8 @@ public interface ProcessedImageReadModel {
 
     List<OffsetDateTime> findSnapshotCapturedAtValues(Integer projectId);
 
+    List<StoredImage> findRepresentativeSnapshots(Integer projectId);
+
     Optional<StoredImage> findClosestSnapshot(Integer projectId, OffsetDateTime dayStart, OffsetDateTime dayEnd, OffsetDateTime midday);
 
     List<StoredImage> findDoneInRange(Integer projectId, OffsetDateTime from, OffsetDateTime to);

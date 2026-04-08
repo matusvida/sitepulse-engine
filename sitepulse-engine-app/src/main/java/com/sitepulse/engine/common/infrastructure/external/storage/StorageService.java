@@ -21,8 +21,10 @@ import java.io.IOException;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import jakarta.annotation.PostConstruct;
+import java.time.Duration;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -32,11 +34,16 @@ public class StorageService implements ObjectStorage {
 
     private final SitePulseProperties properties;
     private final MinioClient minioClient;
+    private final MinioClient presignClient;
 
     public StorageService(SitePulseProperties properties) {
         this.properties = properties;
         this.minioClient = MinioClient.builder()
                 .endpoint(properties.minioEndpoint())
+                .credentials(properties.minioAccessKey(), properties.minioSecretKey())
+                .build();
+        this.presignClient = MinioClient.builder()
+                .endpoint(properties.minioPublicEndpoint())
                 .credentials(properties.minioAccessKey(), properties.minioSecretKey())
                 .build();
     }
@@ -134,11 +141,12 @@ public class StorageService implements ObjectStorage {
     }
 
     @Override
-    public String presign(String bucket, String key) {
+    public String presign(String bucket, String key, Duration expiresAfter) {
         try {
-            return minioClient.getPresignedObjectUrl(
+            return presignClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.GET)
+                            .expiry(Math.toIntExact(expiresAfter.toSeconds()), TimeUnit.SECONDS)
                             .bucket(bucket)
                             .object(key)
                             .build()

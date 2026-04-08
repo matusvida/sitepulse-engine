@@ -4,6 +4,7 @@ import com.sitepulse.engine.http.project.dto.CameraCreateRequest;
 import com.sitepulse.engine.http.project.dto.CameraUpdateRequest;
 import com.sitepulse.engine.http.project.dto.CameraView;
 import com.sitepulse.engine.http.project.dto.ProjectCreateRequest;
+import com.sitepulse.engine.http.project.dto.ProjectSnapshotView;
 import com.sitepulse.engine.http.project.dto.ProjectUpdateRequest;
 import com.sitepulse.engine.http.project.dto.ProjectView;
 import io.swagger.v3.oas.annotations.Operation;
@@ -57,6 +58,10 @@ public interface ProjectApi {
     @Operation(summary = "List dates with snapshots")
     @GetMapping("/projects/{projectId}/snapshot/dates")
     List<String> snapshotDates(@PathVariable Integer projectId);
+
+    @Operation(summary = "List project snapshots with signed URLs")
+    @GetMapping("/projects/{projectId}/snapshots")
+    List<ProjectSnapshotView> snapshots(@PathVariable Integer projectId);
 
     @Operation(summary = "Get a project snapshot")
     @GetMapping(value = "/projects/{projectId}/snapshot", produces = {MediaType.IMAGE_JPEG_VALUE, MediaType.IMAGE_PNG_VALUE})

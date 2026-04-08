@@ -92,6 +92,23 @@ public interface ImageRepository extends JpaRepository<ImageEntity, Integer> {
     }
 
     @Query(value = """
+            SELECT DISTINCT ON (DATE(i.captured_at AT TIME ZONE 'UTC')) i.*
+            FROM images i
+            WHERE i.project_id = :projectId
+              AND i.status = :status
+              AND i.captured_at IS NOT NULL
+            ORDER BY DATE(i.captured_at AT TIME ZONE 'UTC'),
+                     ABS(EXTRACT(EPOCH FROM (i.captured_at - ((DATE(i.captured_at AT TIME ZONE 'UTC') + TIME '12:00:00') AT TIME ZONE 'UTC')))) ASC,
+                     i.captured_at ASC,
+                     i.id ASC
+            """, nativeQuery = true)
+    List<ImageEntity> findRepresentativeSnapshotsByProjectIdAndStatus(@Param("projectId") Integer projectId, @Param("status") String status);
+
+    default List<ImageEntity> findRepresentativeSnapshots(Integer projectId) {
+        return findRepresentativeSnapshotsByProjectIdAndStatus(projectId, ImageStatus.DONE.name());
+    }
+
+    @Query(value = """
             SELECT * FROM images
             WHERE project_id = :projectId
               AND camera_id = :cameraId

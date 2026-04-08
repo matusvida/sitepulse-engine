@@ -53,9 +53,11 @@ sitepulse:
   postgres-dsn: ${POSTGRES_DSN:postgresql://sitepulse:sitepulse@localhost:5432/sitepulse}
   cors-origins: ${CORS_ORIGINS:http://localhost:3000}
   minio-endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  minio-public-endpoint: ${MINIO_PUBLIC_ENDPOINT:http://localhost:9001}
   minio-access-key: ${MINIO_ACCESS_KEY:admin}
   minio-secret-key: ${MINIO_SECRET_KEY:password123}
   minio-bucket-default: ${MINIO_BUCKET_DEFAULT:tower-tl}
+  storage-presign-ttl-minutes: ${STORAGE_PRESIGN_TTL_MINUTES:60}
   yolo-model-path: ${YOLO_MODEL_PATH:yolov8x.pt}
   conf-threshold: ${CONF_THRESHOLD:0.35}
   per-class-thresholds-json: ${PER_CLASS_THRESHOLDS_JSON:{}}

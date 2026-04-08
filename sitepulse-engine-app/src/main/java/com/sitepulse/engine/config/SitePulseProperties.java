@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -16,9 +17,11 @@ public record SitePulseProperties(
         @NotBlank String postgresDsn,
         @NotBlank String corsOrigins,
         @NotBlank String minioEndpoint,
+        @NotBlank String minioPublicEndpoint,
         @NotBlank String minioAccessKey,
         @NotBlank String minioSecretKey,
         @NotBlank String minioBucketDefault,
+        @NotNull Integer storagePresignTtlMinutes,
         @NotBlank String yoloModelPath,
         @NotNull Double confThreshold,
         @NotBlank String perClassThresholdsJson,
@@ -46,6 +49,10 @@ public record SitePulseProperties(
 
     public String[] corsOriginArray() {
         return corsOrigins.split("\\s*,\\s*");
+    }
+
+    public Duration storagePresignTtl() {
+        return Duration.ofMinutes(storagePresignTtlMinutes);
     }
 
     public Map<String, Double> perClassThresholds(ObjectMapper objectMapper) {
