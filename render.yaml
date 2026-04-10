@@ -1,0 +1,53 @@
+services:
+  - type: web
+    name: sitepulse-engine
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    autoDeployTrigger: commit
+    healthCheckPath: /actuator/health
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: production
+      - key: STORAGE_PROVIDER
+        value: r2
+      - key: STORAGE_DEFAULT_BUCKET
+        value: sitepulse-images
+      - key: STORAGE_REGION
+        value: auto
+      - key: DETECTION_PROVIDER
+        value: openai
+      - key: POSTGRES_DSN
+        fromDatabase:
+          name: sitepulse-postgres
+          property: connectionString
+      - key: STORAGE_ENDPOINT
+        sync: false
+      - key: STORAGE_PUBLIC_ENDPOINT
+        sync: false
+      - key: STORAGE_ACCESS_KEY
+        sync: false
+      - key: STORAGE_SECRET_KEY
+        sync: false
+      - key: DROPBOX_APP_KEY
+        sync: false
+      - key: DROPBOX_APP_SECRET
+        sync: false
+      - key: DROPBOX_REFRESH_TOKEN
+        sync: false
+      - key: DROPBOX_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4.1
+      - key: CORS_ORIGINS
+        sync: false
+
+databases:
+  - name: sitepulse-postgres
+    plan: basic-1gb
+    region: frankfurt
+    databaseName: sitepulse
+    user: sitepulse

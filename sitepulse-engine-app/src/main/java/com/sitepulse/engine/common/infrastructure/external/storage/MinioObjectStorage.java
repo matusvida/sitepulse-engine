@@ -24,14 +24,14 @@ import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 @Service
 @Slf4j
-@ConditionalOnProperty(prefix = "sitepulse", name = "storage-provider", havingValue = "minio", matchIfMissing = true)
 public class MinioObjectStorage implements ObjectStorage {
 
     private final SitePulseProperties properties;
@@ -40,27 +40,39 @@ public class MinioObjectStorage implements ObjectStorage {
 
     public MinioObjectStorage(SitePulseProperties properties) {
         this.properties = properties;
-        SitePulseProperties.MinioProperties minio = requireMinioProperties(properties);
-        this.minioClient = MinioClient.builder()
-                .endpoint(requireValue(minio.endpoint(), "MINIO_ENDPOINT"))
-                .credentials(requireValue(minio.accessKey(), "MINIO_ACCESS_KEY"), requireValue(minio.secretKey(), "MINIO_SECRET_KEY"))
-                .build();
-        this.presignClient = MinioClient.builder()
-                .endpoint(requireValue(minio.publicEndpoint(), "MINIO_PUBLIC_ENDPOINT"))
-                .credentials(requireValue(minio.accessKey(), "MINIO_ACCESS_KEY"), requireValue(minio.secretKey(), "MINIO_SECRET_KEY"))
-                .build();
+        validateStorageProvider();
+        SitePulseProperties.StorageProperties storage = requireStorageProperties(properties);
+        MinioClient.Builder minioBuilder = MinioClient.builder()
+                .endpoint(requireValue(storage.endpoint(), "STORAGE_ENDPOINT"))
+                .credentials(requireValue(storage.accessKey(), "STORAGE_ACCESS_KEY"), requireValue(storage.secretKey(), "STORAGE_SECRET_KEY"));
+        if (storage.region() != null && !storage.region().isBlank()) {
+            minioBuilder.region(storage.region());
+        }
+        this.minioClient = minioBuilder.build();
+
+        MinioClient.Builder presignBuilder = MinioClient.builder()
+                .endpoint(requireValue(storage.publicEndpoint(), "STORAGE_PUBLIC_ENDPOINT"))
+                .credentials(requireValue(storage.accessKey(), "STORAGE_ACCESS_KEY"), requireValue(storage.secretKey(), "STORAGE_SECRET_KEY"));
+        if (storage.region() != null && !storage.region().isBlank()) {
+            presignBuilder.region(storage.region());
+        }
+        this.presignClient = presignBuilder.build();
     }
 
     @PostConstruct
     public void ensureDefaultBucketExists() {
         String bucket = properties.storageDefaultBucket();
+        if (!properties.usesLocalStorageProvisioning()) {
+            log.info("Skipping automatic bucket creation for storageProvider={}", normalizedStorageProvider());
+            return;
+        }
         try {
             boolean exists = minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucket).build());
             if (!exists) {
                 minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
-                log.info("Created default MinIO bucket={}", bucket);
+                log.info("Created default storage bucket={}", bucket);
             } else {
-                log.info("Default MinIO bucket already exists bucket={}", bucket);
+                log.info("Default storage bucket already exists bucket={}", bucket);
             }
         } catch (ErrorResponseException
                  | InsufficientDataException
@@ -71,14 +83,14 @@ public class MinioObjectStorage implements ObjectStorage {
                  | NoSuchAlgorithmException
                  | ServerException
                  | XmlParserException ex) {
-            log.error("Failed to ensure default MinIO bucket exists bucket={}", bucket, ex);
-            throw new IllegalStateException("Failed to initialize default MinIO bucket " + bucket, ex);
+            log.error("Failed to ensure default storage bucket exists bucket={}", bucket, ex);
+            throw new IllegalStateException("Failed to initialize default storage bucket " + bucket, ex);
         }
     }
 
     @Override
     public byte[] download(String bucket, String key) {
-        log.debug("Downloading object from MinIO bucket={} key={}", bucket, key);
+        log.debug("Downloading object from storage bucket={} key={}", bucket, key);
         try (InputStream inputStream = minioClient.getObject(GetObjectArgs.builder().bucket(bucket).object(key).build())) {
             return inputStream.readAllBytes();
         } catch (ErrorResponseException
@@ -96,7 +108,7 @@ public class MinioObjectStorage implements ObjectStorage {
 
     @Override
     public void upload(String bucket, String key, byte[] data, String contentType) {
-        log.debug("Uploading object to MinIO bucket={} key={} bytes={} contentType={}", bucket, key, data.length, contentType);
+        log.debug("Uploading object to storage bucket={} key={} bytes={} contentType={}", bucket, key, data.length, contentType);
         try {
             minioClient.putObject(
                     PutObjectArgs.builder()
@@ -115,7 +127,7 @@ public class MinioObjectStorage implements ObjectStorage {
                  | NoSuchAlgorithmException
                  | ServerException
                  | XmlParserException ex) {
-            log.error("Failed to upload object to MinIO bucket={} key={}", bucket, key, ex);
+            log.error("Failed to upload object to storage bucket={} key={}", bucket, key, ex);
             throw new ExternalServiceException("Failed to upload object bucket=" + bucket + " key=" + key, ex);
         }
     }
@@ -167,16 +179,27 @@ public class MinioObjectStorage implements ObjectStorage {
         }
     }
 
-    private static SitePulseProperties.MinioProperties requireMinioProperties(SitePulseProperties properties) {
-        SitePulseProperties.MinioProperties minio = properties.minio();
-        if (minio == null) {
-            throw new IllegalStateException("Missing MinIO configuration");
+    private String normalizedStorageProvider() {
+        return properties.storageProvider() == null ? "" : properties.storageProvider().trim().toLowerCase(Locale.ROOT);
+    }
+
+    private void validateStorageProvider() {
+        String provider = normalizedStorageProvider();
+        if (!Set.of("minio", "local", "s3", "r2").contains(provider)) {
+            throw new IllegalStateException("Unsupported storage provider: " + properties.storageProvider());
         }
-        requireValue(minio.endpoint(), "MINIO_ENDPOINT");
-        requireValue(minio.publicEndpoint(), "MINIO_PUBLIC_ENDPOINT");
-        requireValue(minio.accessKey(), "MINIO_ACCESS_KEY");
-        requireValue(minio.secretKey(), "MINIO_SECRET_KEY");
-        return minio;
+    }
+
+    private static SitePulseProperties.StorageProperties requireStorageProperties(SitePulseProperties properties) {
+        SitePulseProperties.StorageProperties storage = properties.storage();
+        if (storage == null) {
+            throw new IllegalStateException("Missing storage configuration");
+        }
+        requireValue(storage.endpoint(), "STORAGE_ENDPOINT");
+        requireValue(storage.publicEndpoint(), "STORAGE_PUBLIC_ENDPOINT");
+        requireValue(storage.accessKey(), "STORAGE_ACCESS_KEY");
+        requireValue(storage.secretKey(), "STORAGE_SECRET_KEY");
+        return storage;
     }
 
     private static String requireValue(String value, String name) {

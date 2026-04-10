@@ -11,6 +11,8 @@ build/
 site/
 pip-log.txt
 pip-wheel-metadata/
+.gcloud-personal/
+scripts/
 
 # Python virtual environments and tooling
 .venv/

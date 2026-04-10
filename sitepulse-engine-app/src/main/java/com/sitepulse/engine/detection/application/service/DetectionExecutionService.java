@@ -10,7 +10,6 @@ import com.sitepulse.engine.detection.domain.port.CameraLookup;
 import com.sitepulse.engine.detection.domain.port.DetectionGateway;
 import com.sitepulse.engine.detection.infrastructure.external.openai.OpenAiDetectionGateway;
 import com.sitepulse.engine.detection.infrastructure.external.openai.OpenAiDetectionResult;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,7 +32,7 @@ public class DetectionExecutionService {
         if (provider == DetectionProvider.YOLO) {
             return runYolo(image, imageBytes, previousImageId);
         }
-        return runOpenAiWithFallback(image, imageBytes, previousImageId);
+        return runOpenAi(image, imageBytes, previousImageId);
     }
 
     public DetectionHealth health() {
@@ -45,13 +44,13 @@ public class DetectionExecutionService {
         return new DetectionHealth(loaded ? "ok" : "down", loaded, properties.openaiModel());
     }
 
-    private DetectionExecutionResult runOpenAiWithFallback(DetectionImage image, byte[] imageBytes, Integer previousImageId) {
-        Optional<DetectionContext> context = detectionContextService.findPreviousContext(image);
+    private DetectionExecutionResult runOpenAi(DetectionImage image, byte[] imageBytes, Integer previousImageId) {
+        DetectionContext context = detectionContextService.findPreviousContext(image).orElse(null);
         Integer cameraWidth = image.getProjectId() == null ? null : cameraLookup.findImageWidth(image.getProjectId(), image.getKey());
         Integer cameraHeight = image.getProjectId() == null ? null : cameraLookup.findImageHeight(image.getProjectId(), image.getKey());
         for (int attempt = 1; attempt <= 3; attempt++) {
             try {
-                OpenAiDetectionResult result = openAiDetectionGateway.infer(imageBytes, context.orElse(null), cameraWidth, cameraHeight);
+                OpenAiDetectionResult result = openAiDetectionGateway.infer(imageBytes, context, cameraWidth, cameraHeight);
                 Integer runId = detectionAnalysisRunService.recordRun(
                         image.getId(),
                         previousImageId,
@@ -79,9 +78,12 @@ public class DetectionExecutionService {
                         null
                 );
                 log.warn("OpenAI detection failed (attempt {}/3) for imageId={} reason={}", attempt, image.getId(), ex.getMessage());
+                if (attempt == 3) {
+                    throw ex;
+                }
             }
         }
-        return runYolo(image, imageBytes, previousImageId);
+        throw new IllegalStateException("OpenAI detection failed unexpectedly");
     }
 
     private DetectionExecutionResult runYolo(DetectionImage image, byte[] imageBytes, Integer previousImageId) {

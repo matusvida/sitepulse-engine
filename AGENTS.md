@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Spring Boot backend for a construction site monitoring platform. The Java application serves the public REST API, owns business logic, database operations, scheduled jobs, and third-party integrations. Python remains only as a small internal YOLO inference service in `python-yolo`.
+Spring Boot backend for a construction site monitoring platform. The Java application serves the public REST API, owns business logic, database operations, scheduled jobs, and third-party integrations. Python remains only as a small optional local-only YOLO inference service in `python-yolo`.
 
 ## Tech Stack
 
@@ -15,8 +15,8 @@ Spring Boot backend for a construction site monitoring platform. The Java applic
 - Lombok
 - springdoc OpenAPI / Swagger UI
 - PostgreSQL
-- MinIO / S3-compatible storage
-- Python FastAPI + Ultralytics YOLO for image recognition only
+- Cloudflare R2 in production, MinIO for local development
+- Python FastAPI + Ultralytics YOLO for optional local-only image recognition
 - Docker + Docker Compose
 
 ## Architecture
@@ -28,7 +28,7 @@ The system is split into two applications:
    - business logic
    - database access
    - schedulers
-   - integrations with Dropbox, OpenAI, MinIO, PDF parsing, and the YOLO service
+   - integrations with Dropbox, OpenAI, object storage, PDF parsing, and the optional YOLO service
 2. **Python YOLO service** in `python-yolo/`
    - private inference endpoint only
    - no public business API
@@ -51,7 +51,7 @@ src/
       plan/               # plans and milestones
       report/             # report generation
       visualization/      # image visualization
-      integration/        # MinIO, Dropbox, OpenAI, YOLO, PDF
+      integration/        # object storage, Dropbox, OpenAI, YOLO, PDF
       scheduler/          # scheduled jobs
     resources/
       application.yml
@@ -93,15 +93,18 @@ Primary configuration lives in Spring Boot `application.yml` plus environment va
 Important variables:
 
 - `POSTGRES_DSN`
-- `MINIO_ENDPOINT`
-- `MINIO_ACCESS_KEY`
-- `MINIO_SECRET_KEY`
-- `MINIO_BUCKET_DEFAULT`
+- `STORAGE_PROVIDER`
+- `STORAGE_DEFAULT_BUCKET`
+- `STORAGE_ENDPOINT`
+- `STORAGE_PUBLIC_ENDPOINT`
+- `STORAGE_ACCESS_KEY`
+- `STORAGE_SECRET_KEY`
+- `STORAGE_REGION`
 - `DROPBOX_TOKEN`
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
 - `YOLO_MODEL_PATH`
-- `PYTHON_YOLO_BASE_URL`
+- `PYTHON_YOLO_BASE_URL` for the local-only YOLO service
 - `CORS_ORIGINS`
 
 The Python service should keep only inference-related configuration.

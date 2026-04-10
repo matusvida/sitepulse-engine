@@ -48,7 +48,7 @@ class RunOnDemandDetectionUseCaseTest {
     void runParsesAnyStorageSchemeInUrl() {
         Fixtures fixtures = new Fixtures();
 
-        DetectionOutcomeResult result = fixtures.useCase.run(new RunOnDemandDetectionCommand(null, null, "gs://archive-bucket/2024/06/site-a.png"));
+        DetectionOutcomeResult result = fixtures.useCase.run(new RunOnDemandDetectionCommand(null, null, "s3://archive-bucket/2024/06/site-a.png"));
 
         assertEquals(1, fixtures.objectStorage.downloadCalls.size());
         assertEquals("archive-bucket", fixtures.objectStorage.downloadCalls.get(0).bucket());

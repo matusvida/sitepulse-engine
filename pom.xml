@@ -30,8 +30,6 @@
         <springdoc.version>2.8.6</springdoc.version>
         <swagger-annotations.version>2.2.31</swagger-annotations.version>
         <minio.version>8.5.17</minio.version>
-        <google-cloud-storage.version>2.47.0</google-cloud-storage.version>
-        <cloud-sql-postgres-socket-factory.version>1.28.1</cloud-sql-postgres-socket-factory.version>
         <dropbox.version>7.0.0</dropbox.version>
         <pdfbox.version>3.0.3</pdfbox.version>
         <shedlock.version>5.16.0</shedlock.version>
