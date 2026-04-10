@@ -8,6 +8,7 @@ import com.sitepulse.engine.detection.application.result.DetectionOutcomeResult;
 import com.sitepulse.engine.detection.application.service.DetectionExecutionResult;
 import com.sitepulse.engine.detection.application.service.DetectionExecutionService;
 import com.sitepulse.engine.detection.application.service.DetectionTrackingService;
+import com.sitepulse.engine.detection.domain.model.CameraRoiSettings;
 import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.detection.domain.model.DetectionOutcome;
 import com.sitepulse.engine.detection.domain.model.DetectionTarget;
@@ -52,13 +53,14 @@ public class RunOnDemandDetectionUseCase {
         image = detectionImageRepository.save(image);
         try {
             byte[] imageBytes = objectStorage.download(target.bucket(), target.key());
-            DetectionExecutionResult execution = detectionExecutionService.execute(image, imageBytes);
+            CameraRoiSettings cameraSettings = target.projectId() == null ? null : cameraLookup.findRoiSettings(target.projectId(), target.key());
+            DetectionExecutionResult execution = detectionExecutionService.execute(image, imageBytes, cameraSettings);
             DetectionOutcome outcome = detectionPostProcessor.process(
                     target.bucket(),
                     target.key(),
                     imageBytes,
                     execution.inference(),
-                    target.projectId() == null ? null : cameraLookup.findRoiSettings(target.projectId(), target.key())
+                    cameraSettings
             );
 
             if (!outcome.skipped()) {

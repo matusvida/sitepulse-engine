@@ -63,7 +63,7 @@ class RunOnDemandDetectionUseCaseTest {
         private final RecordingObjectStorage objectStorage = new RecordingObjectStorage();
         private final DetectionExecutionService detectionExecutionService = new DetectionExecutionService(null, null, null, null, null, null) {
             @Override
-            public DetectionExecutionResult execute(DetectionImage image, byte[] imageBytes) {
+            public DetectionExecutionResult execute(DetectionImage image, byte[] imageBytes, CameraRoiSettings cameraSettings) {
                 return new DetectionExecutionResult(
                         DetectionProvider.OPENAI,
                         new DetectionInference("model", 1920, 1080, 12.5, List.of()),

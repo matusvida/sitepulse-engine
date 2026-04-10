@@ -9,6 +9,7 @@ import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiFeignCli
 import com.sitepulse.engine.common.infrastructure.external.openai.dto.OpenAiChatRequest;
 import com.sitepulse.engine.common.infrastructure.external.openai.dto.OpenAiChatResponse;
 import com.sitepulse.engine.detection.application.service.DetectionClassCatalog;
+import com.sitepulse.engine.detection.domain.model.CameraRoiSettings;
 import com.sitepulse.engine.detection.domain.model.DetectionContext;
 import com.sitepulse.engine.detection.domain.model.DetectionInference;
 import com.sitepulse.engine.detection.domain.model.RawDetection;
@@ -36,32 +37,38 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class OpenAiDetectionGateway {
 
-    private static final String PROMPT_VERSION = "v1";
+    private static final String PROMPT_VERSION = "v2-roi-guided";
     private final OpenAiFeignClient openAiFeignClient;
     private final SitePulseProperties properties;
     private final ObjectMapper objectMapper;
     private final DetectionClassCatalog detectionClassCatalog;
 
-    public OpenAiDetectionResult infer(byte[] imageBytes, DetectionContext context, Integer cameraWidth, Integer cameraHeight) {
+    public OpenAiDetectionResult infer(byte[] imageBytes, DetectionContext context, CameraRoiSettings cameraSettings) {
         BufferedImage image = decode(imageBytes);
+        boolean roiIncluded = cameraSettings != null && cameraSettings.hasRoi();
+        Integer promptWidth = cameraSettings == null ? null : cameraSettings.imageWidth();
+        Integer promptHeight = cameraSettings == null ? null : cameraSettings.imageHeight();
         log.info(
-                "OpenAI detection request model={} prompt_version={} image={}x{} camera={}x{} context_image_id={} context_items={} classes={}",
+                "OpenAI detection request model={} prompt_version={} image={}x{} camera={}x{} context_image_id={} context_items={} classes={} roi_in_prompt={} roi_points={} drop_outside={}",
                 properties.openaiModel(),
                 PROMPT_VERSION,
                 image.getWidth(),
                 image.getHeight(),
-                cameraWidth,
-                cameraHeight,
+                promptWidth,
+                promptHeight,
                 context == null ? null : context.imageId(),
                 context == null || context.detections() == null ? 0 : context.detections().size(),
-                summarizeClasses()
+                summarizeClasses(),
+                roiIncluded,
+                roiIncluded ? cameraSettings.roiPolygon().size() : 0,
+                cameraSettings != null && cameraSettings.dropOutside()
         );
         long started = System.nanoTime();
         OpenAiChatResponse response = openAiFeignClient.chat(
                 authorizationHeader(),
                 new OpenAiChatRequest(
                         properties.openaiModel(),
-                        buildMessages(imageBytes, context, image.getWidth(), image.getHeight(), cameraWidth, cameraHeight),
+                        buildMessages(imageBytes, context, cameraSettings, image.getWidth(), image.getHeight()),
                         Map.of("type", "json_object"),
                         0.0,
                         2048
@@ -94,7 +101,8 @@ public class OpenAiDetectionGateway {
                         detections
                 ),
                 json,
-                PROMPT_VERSION
+                PROMPT_VERSION,
+                roiIncluded
         );
     }
 
@@ -105,13 +113,12 @@ public class OpenAiDetectionGateway {
     private List<Map<String, Object>> buildMessages(
             byte[] imageBytes,
             DetectionContext context,
+            CameraRoiSettings cameraSettings,
             int imageWidth,
-            int imageHeight,
-            Integer cameraWidth,
-            Integer cameraHeight
+            int imageHeight
     ) {
         String systemPrompt = buildSystemPrompt();
-        String userPrompt = buildUserPrompt(context, imageWidth, imageHeight, cameraWidth, cameraHeight);
+        String userPrompt = buildUserPrompt(context, cameraSettings, imageWidth, imageHeight);
         List<Map<String, Object>> contentParts = new ArrayList<>();
         contentParts.add(Map.of("type", "text", "text", userPrompt));
         contentParts.add(Map.of(
@@ -128,13 +135,29 @@ public class OpenAiDetectionGateway {
         return Detection.SYSTEM_PROMPT;
     }
 
-    private String buildUserPrompt(DetectionContext context, int imageWidth, int imageHeight, Integer cameraWidth, Integer cameraHeight) {
+    String buildUserPrompt(DetectionContext context, CameraRoiSettings cameraSettings, int imageWidth, int imageHeight) {
         String classesJson = serialize(toClassList());
         String contextJson = context == null ? "[]" : serialize(context.detections());
         String contextImageId = context == null ? "none" : String.valueOf(context.imageId());
-        String prompt = Detection.USER_PROMPT_TEMPLATE.formatted(classesJson, contextImageId, contextJson);
-        if (cameraWidth != null && cameraHeight != null) {
-            return prompt + Detection.CAMERA_DIMENSIONS_TEMPLATE.formatted(cameraWidth, cameraHeight);
+        String previousDetectionResponse = context == null || context.previousDetectionResponse() == null
+                ? "null"
+                : context.previousDetectionResponse();
+        String prompt = Detection.USER_PROMPT_TEMPLATE.formatted(
+                classesJson,
+                contextImageId,
+                contextJson,
+                contextImageId,
+                previousDetectionResponse
+        );
+        if (cameraSettings != null && cameraSettings.hasRoi()) {
+            prompt += Detection.ROI_TEMPLATE.formatted(
+                    serialize(cameraSettings.roiPolygon()),
+                    cameraSettings.dropOutside()
+            );
+            prompt += Detection.ROI_RULES_TEMPLATE;
+        }
+        if (cameraSettings != null && cameraSettings.imageWidth() != null && cameraSettings.imageHeight() != null) {
+            return prompt + Detection.CAMERA_DIMENSIONS_TEMPLATE.formatted(cameraSettings.imageWidth(), cameraSettings.imageHeight());
         }
         return prompt + Detection.FALLBACK_IMAGE_DIMENSIONS_TEMPLATE.formatted(imageWidth, imageHeight);
     }
@@ -158,9 +181,6 @@ public class OpenAiDetectionGateway {
         return Map.of(
                 "class_id", classId,
                 "class_name", className,
-                "typical_width_m", hint.typicalWidthM(),
-                "typical_height_m", hint.typicalHeightM(),
-                "typical_length_m", hint.typicalLengthM(),
                 "detection_hints", hint.detectionHints()
         );
     }

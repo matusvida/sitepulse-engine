@@ -26,7 +26,12 @@ public class CameraLookupAdapter implements CameraLookup {
     @Override
     public CameraRoiSettings findRoiSettings(Integer projectId, String key) {
         return findCamera(projectId, key)
-                .map(camera -> new CameraRoiSettings(camera.getRoiPolygon(), Boolean.TRUE.equals(camera.getDropOutside())))
+                .map(camera -> new CameraRoiSettings(
+                        camera.getRoiPolygon(),
+                        Boolean.TRUE.equals(camera.getDropOutside()),
+                        camera.getImageWidth(),
+                        camera.getImageHeight()
+                ))
                 .orElse(null);
     }
 

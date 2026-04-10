@@ -2,6 +2,7 @@ package com.sitepulse.engine.detection.application.usecase;
 
 import com.sitepulse.engine.common.domain.port.ObjectStorage;
 import com.sitepulse.engine.common.exception.SitePulseException;
+import com.sitepulse.engine.detection.domain.model.CameraRoiSettings;
 import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.detection.domain.model.DetectionOutcome;
 import com.sitepulse.engine.detection.domain.port.CameraLookup;
@@ -37,13 +38,14 @@ public class ProcessPendingImagesUseCase {
         for (DetectionImage image : images) {
             try {
                 byte[] imageBytes = objectStorage.download(image.getBucket(), image.getKey());
-                DetectionExecutionResult execution = detectionExecutionService.execute(image, imageBytes);
+                CameraRoiSettings cameraSettings = image.getProjectId() == null ? null : cameraLookup.findRoiSettings(image.getProjectId(), image.getKey());
+                DetectionExecutionResult execution = detectionExecutionService.execute(image, imageBytes, cameraSettings);
                 DetectionOutcome outcome = detectionPostProcessor.process(
                         image.getBucket(),
                         image.getKey(),
                         imageBytes,
                         execution.inference(),
-                        image.getProjectId() == null ? null : cameraLookup.findRoiSettings(image.getProjectId(), image.getKey())
+                        cameraSettings
                 );
                 image.markDone(OffsetDateTime.now(ZoneOffset.UTC));
                 detectionImageRepository.save(image);
