@@ -62,13 +62,13 @@ public class ProjectController implements ProjectApi {
     @Override
     public ProjectView createProject(ProjectCreateRequest request) {
         return toProjectView(createProjectUseCase.create(
-                new CreateProjectCommand(request.getName(), request.getLocation(), request.getDropboxPath())));
+                new CreateProjectCommand(request.getName(), request.getLocation(), request.getStorageKeyPrefix())));
     }
 
     @Override
     public ProjectView updateProject(Integer projectId, ProjectUpdateRequest request) {
         return toProjectView(updateProjectUseCase.update(
-                new UpdateProjectCommand(projectId, request.getName(), request.getLocation(), request.getDropboxPath())));
+                new UpdateProjectCommand(projectId, request.getName(), request.getLocation(), request.getStorageKeyPrefix())));
     }
 
     @Override
@@ -79,13 +79,13 @@ public class ProjectController implements ProjectApi {
     @Override
     public CameraView createCamera(Integer projectId, CameraCreateRequest request) {
         return toCameraView(createCameraUseCase.create(
-                new CreateCameraCommand(projectId, request.getName(), request.getKeyPrefix(), request.getRoiPolygon(), request.getDropOutside())));
+                new CreateCameraCommand(projectId, request.getName(), request.getDropboxPath(), request.getKeyPrefix(), request.getRoiPolygon(), request.getDropOutside())));
     }
 
     @Override
     public CameraView updateCamera(Integer projectId, Integer cameraId, CameraUpdateRequest request) {
         return toCameraView(updateCameraUseCase.update(
-                new UpdateCameraCommand(projectId, cameraId, request.getRoiPolygon(), request.getDropOutside())));
+                new UpdateCameraCommand(projectId, cameraId, request.getDropboxPath(), request.getKeyPrefix(), request.getRoiPolygon(), request.getDropOutside())));
     }
 
     @Override
@@ -116,7 +116,7 @@ public class ProjectController implements ProjectApi {
                 result.imageCount(),
                 result.cameraCount(),
                 result.latestSnapshotAt(),
-                result.dropboxPath(),
+                result.storageKeyPrefix(),
                 result.createdAt() == null ? null : result.createdAt().toString()
         );
     }
@@ -126,6 +126,7 @@ public class ProjectController implements ProjectApi {
                 result.id(),
                 result.projectId(),
                 result.name(),
+                result.dropboxPath(),
                 result.roiPolygon(),
                 result.dropOutside(),
                 result.keyPrefix(),

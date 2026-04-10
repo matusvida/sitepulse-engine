@@ -19,6 +19,7 @@ public class CameraView {
     private Integer id;
     private Integer projectId;
     private String name;
+    private String dropboxPath;
     private List<List<Double>> roiPolygon;
     private Boolean dropOutside;
     private String keyPrefix;

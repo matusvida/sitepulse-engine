@@ -21,6 +21,6 @@ public class ProjectView {
     private Integer coveragePercent;
     private Integer cameraCount;
     private String lastSnapshotAt;
-    private String dropboxPath;
+    private String storageKeyPrefix;
     private String createdAt;
 }

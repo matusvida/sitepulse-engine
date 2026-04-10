@@ -7,6 +7,7 @@ public record CameraResult(
         Integer id,
         Integer projectId,
         String name,
+        String dropboxPath,
         List<List<Double>> roiPolygon,
         Boolean dropOutside,
         String keyPrefix,

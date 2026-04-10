@@ -109,6 +109,13 @@ Important variables:
 
 The Python service should keep only inference-related configuration.
 
+Storage layout conventions:
+
+- `projects.storage_key_prefix` defines the top-level object key prefix, for example `danubius`
+- `cameras.dropbox_path` defines the Dropbox source for a specific camera
+- `cameras.key_prefix` defines the camera segment under the project prefix, for example `cam1`
+- synced image keys are built as `{project.storage_key_prefix}/{camera.key_prefix}/{date-folder}/{filename}`
+
 ## API Design
 
 - Public API belongs to Spring Boot

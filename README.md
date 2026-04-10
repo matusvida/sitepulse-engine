@@ -87,8 +87,8 @@ Not every context uses every sub-package. For example, `visualization` has no do
 
 ### 1. Project Setup
 
-- A project is created via the REST API with a name, location, and Dropbox source path
-- Cameras are assigned to the project, each with an optional `keyPrefix`, ROI polygon, and `dropOutside` flag
+- A project is created via the REST API with a name, location, and optional `storageKeyPrefix`
+- Cameras are assigned to the project, each with a camera-specific `dropboxPath`, optional `keyPrefix`, ROI polygon, and `dropOutside` flag
 
 ### 2. Dropbox Sync
 
@@ -96,12 +96,13 @@ Not every context uses every sub-package. For example, `visualization` has no do
 
 1. Scheduler or user triggers a project sync
 2. `SyncJob.start()` creates a RUNNING job
-3. `SyncSource` (Dropbox adapter) lists date folders and image files
+3. `SyncSource` (Dropbox adapter) lists date folders and image files per camera Dropbox path
 4. `SyncFileParser` extracts capture timestamps from folder/file names
 5. Each image is downloaded from Dropbox and uploaded to object storage via `ObjectStorage`
-6. An `images` row is registered in PostgreSQL through `ImageCatalogRepository`
-7. `SyncJob` tracks found/synced counts; `finish()` determines final DONE or FAILED status
-8. `ProjectSyncCompletedEvent` is published
+6. Stored object keys are built as `{project.storageKeyPrefix}/{camera.keyPrefix}/{dateFolder}/{fileName}`
+7. An `images` row is registered in PostgreSQL through `ImageCatalogRepository`
+8. `SyncJob` tracks found/synced counts; `finish()` determines final DONE or FAILED status
+9. `ProjectSyncCompletedEvent` is published
 
 ### 3. Detection
 

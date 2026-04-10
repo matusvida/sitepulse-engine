@@ -1,9 +1,11 @@
 package com.sitepulse.engine.sync.application.usecase;
 
 import com.sitepulse.engine.common.application.event.DomainEventPublisher;
-import com.sitepulse.engine.common.exception.SitePulseException;
 import com.sitepulse.engine.common.domain.port.ObjectStorage;
+import com.sitepulse.engine.common.exception.SitePulseException;
+import com.sitepulse.engine.project.domain.model.Camera;
 import com.sitepulse.engine.project.domain.model.Project;
+import com.sitepulse.engine.project.domain.port.CameraCatalogRepository;
 import com.sitepulse.engine.sync.domain.model.ImageImport;
 import com.sitepulse.engine.sync.domain.model.SourceImageFile;
 import com.sitepulse.engine.sync.domain.model.SyncJob;
@@ -28,37 +30,45 @@ public class RunProjectSyncUseCase {
     private final ObjectStorage objectStorage;
     private final SyncJobRepository syncJobRepository;
     private final ImageCatalogRepository imageCatalogRepository;
+    private final CameraCatalogRepository cameraCatalogRepository;
     private final DomainEventPublisher domainEventPublisher;
 
     private final SyncFileParser syncFileParser = new SyncFileParser();
 
     public void run(Project project) {
-        log.info("Sync started for projectId={} dropboxPath={}", project.getId(), project.getDropboxPath());
+        var cameras = cameraCatalogRepository.findByProjectId(project.getId()).stream()
+                .filter(this::isSyncable)
+                .toList();
+        log.info("Sync started for projectId={} cameraCount={}", project.getId(), cameras.size());
         SyncJob syncJob = syncJobRepository.save(SyncJob.start(project.getId(), OffsetDateTime.now(ZoneOffset.UTC)));
 
         try {
-            for (String folder : syncSource.listSubfolders(project.getDropboxPath())) {
-                LocalDate folderDate = syncFileParser.parseDateFolder(folder).orElse(null);
-                if (folderDate == null) {
-                    continue;
-                }
-                for (SourceImageFile sourceImageFile : syncSource.listFiles(project.getDropboxPath(), folder)) {
-                    syncJob.recordDiscoveredImage();
-                    ImageImport imageImport = toImageImport(project.getId(), folder, folderDate, sourceImageFile);
-                    if (imageCatalogRepository.exists(imageImport.bucket(), imageImport.key())) {
+            for (Camera camera : cameras) {
+                for (String folder : syncSource.listSubfolders(camera.getDropboxPath())) {
+                    LocalDate folderDate = syncFileParser.parseDateFolder(folder).orElse(null);
+                    if (folderDate == null) {
                         continue;
                     }
-                    try {
-                        byte[] bytes = syncSource.downloadFile(project.getDropboxPath(), sourceImageFile.path());
-                        objectStorage.upload(imageImport.bucket(), imageImport.key(), bytes, imageImport.contentType());
-                        imageCatalogRepository.saveImportedImage(imageImport);
-                        syncJob.recordImportedImage();
-                    } catch (SitePulseException ex) {
-                        log.warn("Failed to sync file for projectId={} file={} reason={}", project.getId(), sourceImageFile.name(), ex.getMessage());
-                        syncJob.recordFileFailure(sourceImageFile.name() + ": " + safeMessage(ex));
-                    } catch (RuntimeException ex) {
-                        log.error("Unexpected sync failure for projectId={} file={}", project.getId(), sourceImageFile.name(), ex);
-                        syncJob.recordFileFailure(sourceImageFile.name() + ": " + safeMessage(ex));
+                    for (SourceImageFile sourceImageFile : syncSource.listFiles(camera.getDropboxPath(), folder)) {
+                        syncJob.recordDiscoveredImage();
+                        ImageImport imageImport = toImageImport(project, camera, folder, folderDate, sourceImageFile);
+                        if (imageCatalogRepository.exists(imageImport.bucket(), imageImport.key())) {
+                            continue;
+                        }
+                        try {
+                            byte[] bytes = syncSource.downloadFile(camera.getDropboxPath(), sourceImageFile.path());
+                            objectStorage.upload(imageImport.bucket(), imageImport.key(), bytes, imageImport.contentType());
+                            imageCatalogRepository.saveImportedImage(imageImport);
+                            syncJob.recordImportedImage();
+                        } catch (SitePulseException ex) {
+                            log.warn("Failed to sync file for projectId={} cameraId={} file={} reason={}",
+                                    project.getId(), camera.getId(), sourceImageFile.name(), ex.getMessage());
+                            syncJob.recordFileFailure(sourceImageFile.name() + ": " + safeMessage(ex));
+                        } catch (RuntimeException ex) {
+                            log.error("Unexpected sync failure for projectId={} cameraId={} file={}",
+                                    project.getId(), camera.getId(), sourceImageFile.name(), ex);
+                            syncJob.recordFileFailure(sourceImageFile.name() + ": " + safeMessage(ex));
+                        }
                     }
                 }
             }
@@ -87,14 +97,41 @@ public class RunProjectSyncUseCase {
                 syncJob.getErrors().size());
     }
 
-    private ImageImport toImageImport(Integer projectId, String folder, LocalDate folderDate, SourceImageFile sourceImageFile) {
+    private ImageImport toImageImport(Project project, Camera camera, String folder, LocalDate folderDate, SourceImageFile sourceImageFile) {
         return new ImageImport(
-                projectId,
+                project.getId(),
                 objectStorage.defaultBucket(),
-                folder + "/" + sourceImageFile.name(),
+                buildStorageKey(project, camera, folder, sourceImageFile.name()),
                 syncFileParser.parseCapturedAt(sourceImageFile.name(), folderDate),
                 syncFileParser.contentType(sourceImageFile.name())
         );
+    }
+
+    private String buildStorageKey(Project project, Camera camera, String folder, String fileName) {
+        StringBuilder key = new StringBuilder();
+        appendSegment(key, project.getStorageKeyPrefix());
+        appendSegment(key, camera.getKeyPrefix());
+        appendSegment(key, folder);
+        appendSegment(key, fileName);
+        return key.toString();
+    }
+
+    private void appendSegment(StringBuilder key, String segment) {
+        if (segment == null || segment.isBlank()) {
+            return;
+        }
+        String normalized = segment.replaceAll("^/+", "").replaceAll("/+$", "");
+        if (normalized.isBlank()) {
+            return;
+        }
+        if (key.length() > 0) {
+            key.append('/');
+        }
+        key.append(normalized);
+    }
+
+    private boolean isSyncable(Camera camera) {
+        return camera.getDropboxPath() != null && !camera.getDropboxPath().isBlank();
     }
 
     private String safeMessage(Throwable ex) {

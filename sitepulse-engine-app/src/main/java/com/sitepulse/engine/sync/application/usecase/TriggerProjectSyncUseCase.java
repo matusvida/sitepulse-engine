@@ -3,6 +3,7 @@ package com.sitepulse.engine.sync.application.usecase;
 import com.sitepulse.engine.common.exception.ValidationException;
 import com.sitepulse.engine.project.application.ProjectLookupService;
 import com.sitepulse.engine.project.domain.model.Project;
+import com.sitepulse.engine.project.domain.port.CameraCatalogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 public class TriggerProjectSyncUseCase {
 
     private final ProjectLookupService projectLookupService;
+    private final CameraCatalogRepository cameraCatalogRepository;
     private final RunProjectSyncUseCase runProjectSyncUseCase;
 
     @Async("applicationTaskExecutor")
@@ -25,8 +27,10 @@ public class TriggerProjectSyncUseCase {
 
     private Project requireSyncableProject(Integer projectId) {
         Project project = projectLookupService.requireProject(projectId);
-        if (project.getDropboxPath() == null || project.getDropboxPath().isBlank()) {
-            throw new ValidationException("Project has no dropboxPath configured");
+        boolean syncable = cameraCatalogRepository.findByProjectId(projectId).stream()
+                .anyMatch(camera -> camera.getDropboxPath() != null && !camera.getDropboxPath().isBlank());
+        if (!syncable) {
+            throw new ValidationException("Project has no camera dropboxPath configured");
         }
         return project;
     }

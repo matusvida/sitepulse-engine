@@ -24,7 +24,7 @@ public class UpdateCameraUseCase {
         projectLookupService.requireProject(command.projectId());
         Camera camera = cameraCatalogRepository.findByIdAndProjectId(command.cameraId(), command.projectId())
                 .orElseThrow(() -> new ResourceNotFoundException("Camera not found"));
-        camera.update(command.roiPolygon(), command.dropOutside());
+        camera.update(command.dropboxPath(), command.keyPrefix(), command.roiPolygon(), command.dropOutside());
         camera = cameraCatalogRepository.save(camera);
         return projectResultMapper.toResult(camera);
     }

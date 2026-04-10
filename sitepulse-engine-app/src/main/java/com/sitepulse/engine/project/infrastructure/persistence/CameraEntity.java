@@ -49,6 +49,9 @@ public class CameraEntity {
     @Column(name = "drop_outside")
     private Boolean dropOutside;
 
+    @Column(name = "dropbox_path", length = 1024)
+    private String dropboxPath;
+
     @Column(name = "key_prefix", length = 512)
     private String keyPrefix;
 

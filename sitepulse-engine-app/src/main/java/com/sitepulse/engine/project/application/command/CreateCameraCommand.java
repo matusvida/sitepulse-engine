@@ -5,6 +5,7 @@ import java.util.List;
 public record CreateCameraCommand(
         Integer projectId,
         String name,
+        String dropboxPath,
         String keyPrefix,
         List<List<Double>> roiPolygon,
         Boolean dropOutside

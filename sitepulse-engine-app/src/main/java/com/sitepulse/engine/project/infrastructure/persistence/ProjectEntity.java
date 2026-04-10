@@ -39,8 +39,8 @@ public class ProjectEntity {
     @Column(length = 512)
     private String location;
 
-    @Column(name = "dropbox_path", length = 1024)
-    private String dropboxPath;
+    @Column(name = "storage_key_prefix", length = 512)
+    private String storageKeyPrefix;
 
     @Column(name = "created_at")
     private OffsetDateTime createdAt;

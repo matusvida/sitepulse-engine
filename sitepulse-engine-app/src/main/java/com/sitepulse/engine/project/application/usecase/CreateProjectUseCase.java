@@ -21,7 +21,7 @@ public class CreateProjectUseCase {
     @Transactional
     public ProjectResult create(CreateProjectCommand command) {
         Project project = projectCatalogRepository.save(
-                Project.create(command.name(), command.location(), command.dropboxPath(), OffsetDateTime.now(ZoneOffset.UTC))
+                Project.create(command.name(), command.location(), command.storageKeyPrefix(), OffsetDateTime.now(ZoneOffset.UTC))
         );
         return projectResultMapper.toResult(project);
     }

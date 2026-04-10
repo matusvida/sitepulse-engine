@@ -1,11 +1,11 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/sitepulse
+    url: jdbc:postgresql://localhost:5433/sitepulse
     username: sitepulse
     password: sitepulse
 
 sitepulse:
-  postgres-dsn: postgresql://sitepulse:sitepulse@localhost:5432/sitepulse
+  postgres-dsn: postgresql://sitepulse:sitepulse@localhost:5433/sitepulse
   storage-provider: minio
   storage-default-bucket: tower-tl
   storage-presign-ttl-minutes: 60

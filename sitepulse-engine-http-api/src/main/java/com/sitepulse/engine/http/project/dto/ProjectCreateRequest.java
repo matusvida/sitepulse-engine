@@ -20,5 +20,5 @@ public class ProjectCreateRequest {
     private String name;
 
     private String location;
-    private String dropboxPath;
+    private String storageKeyPrefix;
 }

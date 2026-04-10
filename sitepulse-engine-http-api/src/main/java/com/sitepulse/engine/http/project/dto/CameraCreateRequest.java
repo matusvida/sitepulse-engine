@@ -20,6 +20,7 @@ public class CameraCreateRequest {
     @NotBlank
     private String name;
 
+    private String dropboxPath;
     private String keyPrefix;
     private List<List<Double>> roiPolygon;
     private Boolean dropOutside;

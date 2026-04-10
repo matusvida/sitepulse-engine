@@ -22,7 +22,7 @@ public class ProjectResultMapper {
                 0,
                 projectReadModel.countCameras(project.getId()),
                 projectReadModel.latestSnapshotAt(project.getId()).map(odt -> odt.toString()).orElse(""),
-                project.getDropboxPath(),
+                project.getStorageKeyPrefix(),
                 project.getCreatedAt()
         );
     }
@@ -32,6 +32,7 @@ public class ProjectResultMapper {
                 camera.getId(),
                 camera.getProjectId(),
                 camera.getName(),
+                camera.getDropboxPath(),
                 camera.getRoiPolygon(),
                 camera.getDropOutside(),
                 camera.getKeyPrefix(),

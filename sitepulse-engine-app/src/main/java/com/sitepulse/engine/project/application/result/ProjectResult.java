@@ -9,7 +9,7 @@ public record ProjectResult(
         int imageCount,
         int cameraCount,
         String latestSnapshotAt,
-        String dropboxPath,
+        String storageKeyPrefix,
         OffsetDateTime createdAt
 ) {
 }

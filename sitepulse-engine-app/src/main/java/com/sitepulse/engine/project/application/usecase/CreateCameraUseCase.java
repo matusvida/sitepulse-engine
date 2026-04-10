@@ -27,6 +27,7 @@ public class CreateCameraUseCase {
                 Camera.create(
                         command.projectId(),
                         command.name(),
+                        command.dropboxPath(),
                         command.keyPrefix(),
                         command.roiPolygon(),
                         command.dropOutside(),

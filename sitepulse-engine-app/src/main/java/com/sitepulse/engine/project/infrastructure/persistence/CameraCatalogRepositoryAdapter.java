@@ -31,6 +31,7 @@ public class CameraCatalogRepositoryAdapter implements CameraCatalogRepository {
                 .name(camera.getName())
                 .roiPolygon(camera.getRoiPolygon())
                 .dropOutside(camera.getDropOutside())
+                .dropboxPath(camera.getDropboxPath())
                 .keyPrefix(camera.getKeyPrefix())
                 .imageWidth(camera.getImageWidth())
                 .imageHeight(camera.getImageHeight())
@@ -46,6 +47,7 @@ public class CameraCatalogRepositoryAdapter implements CameraCatalogRepository {
                 entity.getName(),
                 entity.getRoiPolygon(),
                 entity.getDropOutside(),
+                entity.getDropboxPath(),
                 entity.getKeyPrefix(),
                 entity.getImageWidth(),
                 entity.getImageHeight(),

@@ -16,6 +16,8 @@ import lombok.ToString;
 @ToString
 public class CameraUpdateRequest {
 
+    private String dropboxPath;
+    private String keyPrefix;
     private List<List<Double>> roiPolygon;
     private Boolean dropOutside;
 }

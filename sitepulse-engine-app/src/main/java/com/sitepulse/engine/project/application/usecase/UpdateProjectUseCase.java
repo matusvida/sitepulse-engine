@@ -21,7 +21,7 @@ public class UpdateProjectUseCase {
     @Transactional
     public ProjectResult update(UpdateProjectCommand command) {
         Project project = projectLookupService.requireProject(command.projectId());
-        project.update(command.name(), command.location(), command.dropboxPath());
+        project.update(command.name(), command.location(), command.storageKeyPrefix());
         project = projectCatalogRepository.save(project);
         return projectResultMapper.toResult(project);
     }

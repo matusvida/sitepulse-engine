@@ -29,13 +29,13 @@ public class ProjectCatalogRepositoryAdapter implements ProjectCatalogRepository
                 .id(project.getId())
                 .name(project.getName())
                 .location(project.getLocation())
-                .dropboxPath(project.getDropboxPath())
+                .storageKeyPrefix(project.getStorageKeyPrefix())
                 .createdAt(project.getCreatedAt())
                 .build();
         return toDomain(projectRepository.save(entity));
     }
 
     private Project toDomain(ProjectEntity entity) {
-        return Project.restore(entity.getId(), entity.getName(), entity.getLocation(), entity.getDropboxPath(), entity.getCreatedAt());
+        return Project.restore(entity.getId(), entity.getName(), entity.getLocation(), entity.getStorageKeyPrefix(), entity.getCreatedAt());
     }
 }
