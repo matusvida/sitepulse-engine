@@ -8,7 +8,7 @@ Backend for the SitePulse construction monitoring platform, built with Domain-Dr
 |--------|---------|
 | `sitepulse-engine-http-api` | Public HTTP contracts — API interfaces, request DTOs, response DTOs |
 | `sitepulse-engine-app` | Runnable Spring Boot application — domain models, use cases, persistence, schedulers, integrations |
-| `python-yolo` | Internal Python FastAPI service used only for YOLO object-detection inference |
+| `python-yolo` | Optional local Python FastAPI service used for YOLO object-detection inference |
 
 Spring Boot is the public backend. The Python service is an internal dependency, not a public API.
 
@@ -17,9 +17,11 @@ Spring Boot is the public backend. The Python service is an internal dependency,
 ```text
 Dropbox
   → Spring sync pipeline
-  → MinIO raw image storage
+  → Cloudflare R2 raw image storage in production
+  → MinIO raw image storage in local development
   → image registration in PostgreSQL
-  → scheduled/manual detection via Python YOLO
+  → scheduled/manual detection via OpenAI
+  → optional local YOLO inference service for development-only runs
   → detections + metrics + alerts in PostgreSQL
   → plan evaluation + AI reporting via OpenAI
   → REST API + Swagger UI from Spring Boot
@@ -43,8 +45,8 @@ The codebase follows a Ports & Adapters (hexagonal) architecture organized by bo
 | Context | Responsibility |
 |---------|---------------|
 | `project` | Project and camera CRUD, snapshot retrieval |
-| `sync` | Dropbox ingestion, image import into MinIO, sync job tracking |
-| `detection` | Object detection orchestration, YOLO gateway, image status lifecycle |
+| `sync` | Dropbox ingestion, image import into object storage, sync job tracking |
+| `detection` | Object detection orchestration, OpenAI primary path, optional YOLO gateway |
 | `metrics` | Daily/weekly metric aggregation, activity heatmaps |
 | `alert` | Alert creation, acknowledgment, resolution |
 | `plan` | Construction plan upload, milestone parsing, plan-vs-progress checking |
@@ -72,7 +74,7 @@ Each bounded context follows this layered package structure:
 │   └── result/       Result records (output from use cases, never HTTP DTOs)
 ├── infrastructure/
 │   ├── persistence/  JPA entities, Spring Data repositories, adapter implementations
-│   ├── external/     External service adapters (Dropbox, YOLO, OpenAI, MinIO)
+│   ├── external/     External service adapters (Dropbox, object storage, YOLO, OpenAI)
 │   ├── scheduler/    ShedLock-backed scheduled tasks
 │   └── event/        Spring event listeners
 └── web/
@@ -96,7 +98,7 @@ Not every context uses every sub-package. For example, `visualization` has no do
 2. `SyncJob.start()` creates a RUNNING job
 3. `SyncSource` (Dropbox adapter) lists date folders and image files
 4. `SyncFileParser` extracts capture timestamps from folder/file names
-5. Each image is downloaded from Dropbox and uploaded to MinIO via `ObjectStorage`
+5. Each image is downloaded from Dropbox and uploaded to object storage via `ObjectStorage`
 6. An `images` row is registered in PostgreSQL through `ImageCatalogRepository`
 7. `SyncJob` tracks found/synced counts; `finish()` determines final DONE or FAILED status
 8. `ProjectSyncCompletedEvent` is published
@@ -106,8 +108,8 @@ Not every context uses every sub-package. For example, `visualization` has no do
 **Key classes:** `ProcessPendingImagesUseCase`, `RunOnDemandDetectionUseCase`, `DetectionImage`, `DetectionPostProcessor`
 
 1. `DetectionImage` transitions: `NEW → PROCESSING → DONE | FAILED`
-2. Spring claims pending images and downloads bytes from MinIO
-3. Images are sent to the Python YOLO service via `DetectionGateway`
+2. Spring claims pending images and downloads bytes from object storage
+3. Images are sent to OpenAI for primary detection; the Python YOLO service is optional and local-only
 4. `DetectionPostProcessor` applies confidence thresholds, min box area, ROI filtering, and quality warnings
 5. Detections are persisted; image status is updated
 6. `ImageDetectionCompletedEvent` is published
@@ -138,7 +140,7 @@ Not every context uses every sub-package. For example, `visualization` has no do
 
 **Key classes:** `GenerateProgressReportUseCase`, `ReportContextProvider`, `ReportGenerator`
 
-1. `ReportEvidenceImageProvider` gathers sample images from MinIO
+1. `ReportEvidenceImageProvider` gathers sample images from object storage
 2. `ReportContextProvider` assembles metrics and milestone summaries (decoupled from other contexts)
 3. `ReportGenerator` (OpenAI) produces Markdown content
 4. `ProgressReport.create()` validates content and date ranges
@@ -148,10 +150,10 @@ Not every context uses every sub-package. For example, `visualization` has no do
 
 **Key classes:** `GenerateDetectionVisualizationUseCase`
 
-1. Original images are loaded from MinIO
+1. Original images are loaded from object storage
 2. Persisted detections are loaded from PostgreSQL
 3. Bounding boxes are rendered onto images
-4. Visualizations are uploaded back to MinIO
+4. Visualizations are uploaded back to object storage
 
 ## HTTP API
 
@@ -269,7 +271,7 @@ sitepulse-engine/
 - OpenFeign for HTTP clients
 - springdoc OpenAPI 2.8.6 / Swagger UI
 - PostgreSQL
-- MinIO (S3-compatible object storage)
+- Cloudflare R2 for production object storage, MinIO for local development
 - ShedLock 5.16.0 for distributed scheduler locking
 - Lombok 1.18.44
 
@@ -291,7 +293,7 @@ Run infrastructure in Docker, Spring locally.
    $env:JAVA_HOME='C:\Users\matus\.jdks\openjdk-25.0.1'
    $env:Path="$env:JAVA_HOME\bin;$env:Path"
    ```
-2. Start infrastructure and YOLO:
+2. Start infrastructure and the optional local YOLO service:
    ```powershell
    docker compose up -d postgres minio python-yolo
    ```
@@ -319,7 +321,7 @@ docker compose up --build
 | Spring API | `http://localhost:8080` |
 | Swagger UI | `http://localhost:8080/swagger-ui.html` |
 | OpenAPI JSON | `http://localhost:8080/v3/api-docs` |
-| Python YOLO health | `http://localhost:8000/health` |
+| Optional local YOLO health | `http://localhost:8000/health` |
 | MinIO API | `http://localhost:9001` |
 | MinIO console | `http://localhost:9091` |
 | PostgreSQL | `localhost:5432` |
@@ -336,22 +338,21 @@ Main configuration files:
 | Variable | Purpose |
 |----------|---------|
 | `POSTGRES_DSN` | PostgreSQL JDBC URL |
-| `STORAGE_PROVIDER` | Storage backend provider (`minio` or `gcs`) |
+| `STORAGE_PROVIDER` | Storage backend provider (`minio`, `r2`, or `s3`) |
 | `STORAGE_DEFAULT_BUCKET` | Default object storage bucket |
 | `STORAGE_PRESIGN_TTL_MINUTES` | Signed URL expiration in minutes |
-| `MINIO_ENDPOINT` | MinIO endpoint URL |
-| `MINIO_PUBLIC_ENDPOINT` | MinIO public endpoint used for browser-accessible signed URLs |
-| `MINIO_ACCESS_KEY` | MinIO access key |
-| `MINIO_SECRET_KEY` | MinIO secret key |
-| `GCS_PROJECT_ID` | GCP project id for GCS uploads and signed URLs |
-| `GCS_CREDENTIALS_PATH` | Path to the GCS service account JSON file |
+| `STORAGE_ENDPOINT` | Storage endpoint URL |
+| `STORAGE_PUBLIC_ENDPOINT` | Storage public endpoint used for browser-accessible signed URLs |
+| `STORAGE_ACCESS_KEY` | Storage access key |
+| `STORAGE_SECRET_KEY` | Storage secret key |
+| `STORAGE_REGION` | Storage region, use `auto` for R2 |
 | `DROPBOX_TOKEN` | Dropbox OAuth token |
 | `DROPBOX_APP_KEY` | Dropbox app key |
 | `DROPBOX_APP_SECRET` | Dropbox app secret |
 | `DROPBOX_REFRESH_TOKEN` | Dropbox refresh token |
 | `OPENAI_API_KEY` | OpenAI API key |
 | `OPENAI_MODEL` | OpenAI model name |
-| `PYTHON_YOLO_BASE_URL` | URL of the Python YOLO service |
+| `PYTHON_YOLO_BASE_URL` | Optional URL of the local-only Python YOLO service |
 | `SYNC_CRON` | Cron expression for Dropbox sync (default: every 10 min) |
 | `DETECTION_SWEEP_CRON` | Cron expression for detection sweep (default: every 10 min, offset 5) |
 | `ANALYSIS_CRON` | Cron expression for nightly analysis (default: 2 AM UTC) |

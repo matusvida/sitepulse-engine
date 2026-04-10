@@ -100,15 +100,12 @@ class ListProjectSnapshotsQueryTest {
                 "minio",
                 "tower-tl",
                 60,
-                new SitePulseProperties.MinioProperties(
+                new SitePulseProperties.StorageProperties(
                         "http://minio:9000",
                         "http://localhost:9001",
                         "admin",
-                        "password123"
-                ),
-                new SitePulseProperties.GcsProperties(
-                        "",
-                        ""
+                        "password123",
+                        "us-east-1"
                 ),
                 "yolov8x.pt",
                 0.35,

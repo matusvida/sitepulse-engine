@@ -43,10 +43,11 @@ services:
     environment:
       STORAGE_PROVIDER: minio
       STORAGE_DEFAULT_BUCKET: tower-tl
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_PUBLIC_ENDPOINT: http://localhost:9001
-      MINIO_ACCESS_KEY: admin
-      MINIO_SECRET_KEY: password123
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_PUBLIC_ENDPOINT: http://localhost:9001
+      STORAGE_ACCESS_KEY: admin
+      STORAGE_SECRET_KEY: password123
+      STORAGE_REGION: eu-central-1
       ENABLE_ROI: "true"
       POSTGRES_DSN: postgresql://sitepulse:sitepulse@postgres:5432/sitepulse
       DROPBOX_APP_KEY: ${DROPBOX_APP_KEY:-}
@@ -55,7 +56,6 @@ services:
       DROPBOX_TOKEN: ${DROPBOX_TOKEN:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       PYTHON_YOLO_BASE_URL: http://python-yolo:8000
-      SERVER_PORT: 8080
     depends_on:
       - postgres
       - minio

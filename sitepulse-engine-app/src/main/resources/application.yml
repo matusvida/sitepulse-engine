@@ -32,7 +32,7 @@ spring:
       enabled: true
 
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 management:
   endpoints:
@@ -55,14 +55,12 @@ sitepulse:
   storage-provider: ${STORAGE_PROVIDER:minio}
   storage-default-bucket: ${STORAGE_DEFAULT_BUCKET:tower-tl}
   storage-presign-ttl-minutes: ${STORAGE_PRESIGN_TTL_MINUTES:60}
-  minio:
-    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
-    public-endpoint: ${MINIO_PUBLIC_ENDPOINT:http://localhost:9001}
-    access-key: ${MINIO_ACCESS_KEY:admin}
-    secret-key: ${MINIO_SECRET_KEY:password123}
-  gcs:
-    project-id: ${GCS_PROJECT_ID:}
-    credentials-path: ${GCS_CREDENTIALS_PATH:}
+  storage:
+    endpoint: ${STORAGE_ENDPOINT:${MINIO_ENDPOINT:http://localhost:9000}}
+    public-endpoint: ${STORAGE_PUBLIC_ENDPOINT:${MINIO_PUBLIC_ENDPOINT:http://localhost:9001}}
+    access-key: ${STORAGE_ACCESS_KEY:${MINIO_ACCESS_KEY:admin}}
+    secret-key: ${STORAGE_SECRET_KEY:${MINIO_SECRET_KEY:password123}}
+    region: ${STORAGE_REGION:eu-central-1}
   yolo-model-path: ${YOLO_MODEL_PATH:yolov8x.pt}
   conf-threshold: ${CONF_THRESHOLD:0.35}
   per-class-thresholds-json: ${PER_CLASS_THRESHOLDS_JSON:{}}

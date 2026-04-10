@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.Valid;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,8 +20,8 @@ public record SitePulseProperties(
         @NotBlank String storageProvider,
         @NotBlank String storageDefaultBucket,
         @NotNull Integer storagePresignTtlMinutes,
-        MinioProperties minio,
-        GcsProperties gcs,
+        @Valid
+        StorageProperties storage,
         @NotBlank String yoloModelPath,
         @NotNull Double confThreshold,
         @NotBlank String perClassThresholdsJson,
@@ -54,17 +55,16 @@ public record SitePulseProperties(
         return Duration.ofMinutes(storagePresignTtlMinutes);
     }
 
-    public record MinioProperties(
-            String endpoint,
-            String publicEndpoint,
-            String accessKey,
-            String secretKey
-    ) {
+    public boolean usesLocalStorageProvisioning() {
+        return "minio".equalsIgnoreCase(storageProvider) || "local".equalsIgnoreCase(storageProvider);
     }
 
-    public record GcsProperties(
-            String projectId,
-            String credentialsPath
+    public record StorageProperties(
+            @NotBlank String endpoint,
+            @NotBlank String publicEndpoint,
+            @NotBlank String accessKey,
+            @NotBlank String secretKey,
+            String region
     ) {
     }
 
