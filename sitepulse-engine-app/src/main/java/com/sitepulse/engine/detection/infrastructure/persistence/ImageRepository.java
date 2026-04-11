@@ -61,51 +61,53 @@ public interface ImageRepository extends JpaRepository<ImageEntity, Integer> {
 
     @Query("""
             select i.capturedAt from ImageEntity i
-            where i.projectId = :projectId and i.status = :status and i.capturedAt is not null
+            where i.projectId = :projectId and i.status in :statuses and i.capturedAt is not null
             order by i.capturedAt desc
             """)
-    List<OffsetDateTime> findCapturedAtValuesByProjectIdAndStatus(@Param("projectId") Integer projectId, @Param("status") ImageStatus status);
+    List<OffsetDateTime> findCapturedAtValuesByProjectIdAndStatusIn(
+            @Param("projectId") Integer projectId,
+            @Param("statuses") List<ImageStatus> statuses
+    );
 
     default List<OffsetDateTime> findSnapshotCapturedAtValues(Integer projectId) {
-        return findCapturedAtValuesByProjectIdAndStatus(projectId, ImageStatus.DONE);
+        return findCapturedAtValuesByProjectIdAndStatusIn(projectId, List.of(ImageStatus.NEW, ImageStatus.DONE));
     }
 
     @Query(value = """
             SELECT * FROM images
             WHERE project_id = :projectId
-              AND status = :status
+              AND status IN ('NEW', 'DONE')
               AND captured_at >= :dayStart
               AND captured_at < :dayEnd
             ORDER BY ABS(EXTRACT(EPOCH FROM (captured_at - :midday))) ASC
             LIMIT 1
             """, nativeQuery = true)
-    Optional<ImageEntity> findClosestSnapshot(
+    Optional<ImageEntity> findClosestSnapshotVisible(
             @Param("projectId") Integer projectId,
-            @Param("status") String status,
             @Param("dayStart") OffsetDateTime dayStart,
             @Param("dayEnd") OffsetDateTime dayEnd,
             @Param("midday") OffsetDateTime midday
     );
 
     default Optional<ImageEntity> findClosestSnapshot(Integer projectId, OffsetDateTime dayStart, OffsetDateTime dayEnd, OffsetDateTime midday) {
-        return findClosestSnapshot(projectId, ImageStatus.DONE.name(), dayStart, dayEnd, midday);
+        return findClosestSnapshotVisible(projectId, dayStart, dayEnd, midday);
     }
 
     @Query(value = """
             SELECT DISTINCT ON (DATE(i.captured_at AT TIME ZONE 'UTC')) i.*
             FROM images i
             WHERE i.project_id = :projectId
-              AND i.status = :status
+              AND i.status IN ('NEW', 'DONE')
               AND i.captured_at IS NOT NULL
             ORDER BY DATE(i.captured_at AT TIME ZONE 'UTC'),
                      ABS(EXTRACT(EPOCH FROM (i.captured_at - ((DATE(i.captured_at AT TIME ZONE 'UTC') + TIME '12:00:00') AT TIME ZONE 'UTC')))) ASC,
                      i.captured_at ASC,
                      i.id ASC
             """, nativeQuery = true)
-    List<ImageEntity> findRepresentativeSnapshotsByProjectIdAndStatus(@Param("projectId") Integer projectId, @Param("status") String status);
+    List<ImageEntity> findRepresentativeSnapshotsByProjectId(@Param("projectId") Integer projectId);
 
     default List<ImageEntity> findRepresentativeSnapshots(Integer projectId) {
-        return findRepresentativeSnapshotsByProjectIdAndStatus(projectId, ImageStatus.DONE.name());
+        return findRepresentativeSnapshotsByProjectId(projectId);
     }
 
     @Query(value = """
