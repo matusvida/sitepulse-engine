@@ -21,4 +21,5 @@ public class ProjectCreateRequest {
 
     private String location;
     private String storageKeyPrefix;
+    private String timezone;
 }

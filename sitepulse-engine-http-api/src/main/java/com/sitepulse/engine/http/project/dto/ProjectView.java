@@ -22,5 +22,6 @@ public class ProjectView {
     private Integer cameraCount;
     private String lastSnapshotAt;
     private String storageKeyPrefix;
+    private String timezone;
     private String createdAt;
 }

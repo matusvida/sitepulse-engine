@@ -7,13 +7,10 @@ import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.detection.domain.model.DetectionOutcome;
 import com.sitepulse.engine.detection.domain.port.CameraLookup;
 import com.sitepulse.engine.detection.domain.port.DetectionImageRepository;
-import com.sitepulse.engine.detection.domain.port.DetectionRecordRepository;
 import com.sitepulse.engine.detection.domain.service.DetectionPostProcessor;
 import com.sitepulse.engine.detection.application.service.DetectionExecutionResult;
 import com.sitepulse.engine.detection.application.service.DetectionExecutionService;
-import com.sitepulse.engine.detection.application.service.DetectionTrackingService;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import com.sitepulse.engine.detection.application.service.DetectionPersistenceService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,19 +24,19 @@ public class ProcessPendingImagesUseCase {
     private final ObjectStorage objectStorage;
     private final DetectionExecutionService detectionExecutionService;
     private final DetectionImageRepository detectionImageRepository;
-    private final DetectionRecordRepository detectionRecordRepository;
     private final CameraLookup cameraLookup;
     private final DetectionPostProcessor detectionPostProcessor;
-    private final DetectionTrackingService detectionTrackingService;
+    private final DetectionPersistenceService detectionPersistenceService;
 
     public void process(int limit) {
         List<DetectionImage> images = detectionImageRepository.claimPendingImages(limit);
         log.info("Claimed {} new images for detection processing", images.size());
         for (DetectionImage image : images) {
+            DetectionExecutionResult execution = null;
             try {
                 byte[] imageBytes = objectStorage.download(image.getBucket(), image.getKey());
                 CameraRoiSettings cameraSettings = image.getProjectId() == null ? null : cameraLookup.findRoiSettings(image.getProjectId(), image.getKey());
-                DetectionExecutionResult execution = detectionExecutionService.execute(image, imageBytes, cameraSettings);
+                execution = detectionExecutionService.execute(image, imageBytes, cameraSettings);
                 DetectionOutcome outcome = detectionPostProcessor.process(
                         image.getBucket(),
                         image.getKey(),
@@ -47,22 +44,14 @@ public class ProcessPendingImagesUseCase {
                         execution.inference(),
                         cameraSettings
                 );
-                image.markDone(OffsetDateTime.now(ZoneOffset.UTC));
-                detectionImageRepository.save(image);
-                if (!outcome.skipped()) {
-                    var tracked = detectionTrackingService.assignTracks(image, outcome.detections(), execution.provider());
-                    detectionRecordRepository.replaceDetections(
-                            image.getId(),
-                            image.getProjectId(),
-                            outcome.modelVersion(),
-                            execution.analysisRunId(),
-                            tracked
-                    );
-                }
+                detectionPersistenceService.persistSuccess(image, outcome, execution);
                 log.info("Detection completed for imageId={} key={}", image.getId(), image.getKey());
             } catch (RuntimeException ex) {
-                image.markFailed(OffsetDateTime.now(ZoneOffset.UTC));
-                detectionImageRepository.save(image);
+                detectionPersistenceService.persistFailure(
+                        image,
+                        execution == null ? null : execution.analysisRunId(),
+                        ex.getMessage()
+                );
                 log.error("Detection failed for imageId={} key={} reason={}", image.getId(), image.getKey(), ex.getMessage(), ex);
             }
         }

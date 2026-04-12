@@ -42,6 +42,9 @@ public class ProjectEntity {
     @Column(name = "storage_key_prefix", length = 512)
     private String storageKeyPrefix;
 
+    @Column(name = "timezone", length = 64)
+    private String timezone;
+
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
 }

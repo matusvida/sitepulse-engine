@@ -5,7 +5,7 @@ import com.sitepulse.engine.detection.application.command.RunOnDemandDetectionCo
 import com.sitepulse.engine.detection.application.result.DetectionOutcomeResult;
 import com.sitepulse.engine.detection.application.service.DetectionExecutionResult;
 import com.sitepulse.engine.detection.application.service.DetectionExecutionService;
-import com.sitepulse.engine.detection.application.service.DetectionTrackingService;
+import com.sitepulse.engine.detection.application.service.DetectionPersistenceService;
 import com.sitepulse.engine.detection.domain.model.CameraRoiSettings;
 import com.sitepulse.engine.detection.domain.model.DetectedObject;
 import com.sitepulse.engine.detection.domain.model.DetectionImage;
@@ -15,7 +15,6 @@ import com.sitepulse.engine.detection.domain.model.DetectionProvider;
 import com.sitepulse.engine.detection.domain.model.RawDetection;
 import com.sitepulse.engine.detection.domain.port.CameraLookup;
 import com.sitepulse.engine.detection.domain.port.DetectionImageRepository;
-import com.sitepulse.engine.detection.domain.port.DetectionRecordRepository;
 import com.sitepulse.engine.detection.domain.service.DetectionPostProcessor;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -67,14 +66,19 @@ class RunOnDemandDetectionUseCaseTest {
                 return new DetectionExecutionResult(
                         DetectionProvider.OPENAI,
                         new DetectionInference("model", 1920, 1080, 12.5, List.of()),
-                        101
+                        101,
+                        null
                 );
             }
         };
-        private final DetectionTrackingService detectionTrackingService = new DetectionTrackingService(null, null) {
+        private final DetectionPersistenceService detectionPersistenceService = new DetectionPersistenceService(null, null, null, null) {
             @Override
-            public List<DetectedObject> assignTracks(DetectionImage image, List<DetectedObject> detections, DetectionProvider provider) {
-                return detections;
+            public List<DetectedObject> persistSuccess(DetectionImage image, DetectionOutcome outcome, DetectionExecutionResult execution) {
+                return outcome.detections();
+            }
+
+            @Override
+            public void persistFailure(DetectionImage image, Integer analysisRunId, String error) {
             }
         };
         private final DetectionImageRepository detectionImageRepository = new DetectionImageRepository() {
@@ -97,8 +101,6 @@ class RunOnDemandDetectionUseCaseTest {
             public DetectionImage save(DetectionImage image) {
                 return image;
             }
-        };
-        private final DetectionRecordRepository detectionRecordRepository = (imageId, projectId, modelVersion, analysisRunId, detections) -> {
         };
         private final CameraLookup cameraLookup = new CameraLookup() {
             @Override
@@ -140,9 +142,8 @@ class RunOnDemandDetectionUseCaseTest {
         private final RunOnDemandDetectionUseCase useCase = new RunOnDemandDetectionUseCase(
                 objectStorage,
                 detectionExecutionService,
-                detectionTrackingService,
+                detectionPersistenceService,
                 detectionImageRepository,
-                detectionRecordRepository,
                 cameraLookup,
                 detectionPostProcessor
         );

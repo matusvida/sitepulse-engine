@@ -56,8 +56,8 @@ public class DetectionEntity {
     @Column(name = "analysis_run_id")
     private Integer analysisRunId;
 
-    @Column(name = "in_roi", length = 8)
-    private String inRoi;
+    @Column(name = "in_roi")
+    private Boolean inRoi;
 
     @Column(name = "color_hint", length = 32)
     private String colorHint;

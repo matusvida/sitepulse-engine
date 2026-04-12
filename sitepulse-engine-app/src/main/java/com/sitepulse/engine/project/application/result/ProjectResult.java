@@ -10,6 +10,7 @@ public record ProjectResult(
         int cameraCount,
         String latestSnapshotAt,
         String storageKeyPrefix,
+        String timezone,
         OffsetDateTime createdAt
 ) {
 }

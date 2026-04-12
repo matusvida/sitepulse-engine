@@ -127,6 +127,7 @@ class ResolveProjectSnapshotQueryTest {
                                 "Project",
                                 "Location",
                                 "dropbox/path",
+                                "Europe/Bratislava",
                                 OffsetDateTime.of(2024, 6, 1, 12, 0, 0, 0, ZoneOffset.UTC)
                         ))
                         : Optional.empty();

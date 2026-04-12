@@ -23,6 +23,7 @@ public class ProjectResultMapper {
                 projectReadModel.countCameras(project.getId()),
                 projectReadModel.latestSnapshotAt(project.getId()).map(odt -> odt.toString()).orElse(""),
                 project.getStorageKeyPrefix(),
+                project.getTimezone(),
                 project.getCreatedAt()
         );
     }

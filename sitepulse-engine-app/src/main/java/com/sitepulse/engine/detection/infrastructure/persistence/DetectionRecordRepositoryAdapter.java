@@ -29,7 +29,7 @@ public class DetectionRecordRepositoryAdapter implements DetectionRecordReposito
                     .classId(detection.classId())
                     .score(detection.score())
                     .bboxXyxy(jsonUtils.write(detection.bboxXyxy()))
-                    .inRoi(detection.inRoi() == null ? null : detection.inRoi().toString())
+                    .inRoi(detection.inRoi())
                     .trackId(detection.trackId())
                     .analysisRunId(analysisRunId)
                     .colorHint(detection.colorHint())

@@ -62,13 +62,13 @@ public class ProjectController implements ProjectApi {
     @Override
     public ProjectView createProject(ProjectCreateRequest request) {
         return toProjectView(createProjectUseCase.create(
-                new CreateProjectCommand(request.getName(), request.getLocation(), request.getStorageKeyPrefix())));
+                new CreateProjectCommand(request.getName(), request.getLocation(), request.getStorageKeyPrefix(), request.getTimezone())));
     }
 
     @Override
     public ProjectView updateProject(Integer projectId, ProjectUpdateRequest request) {
         return toProjectView(updateProjectUseCase.update(
-                new UpdateProjectCommand(projectId, request.getName(), request.getLocation(), request.getStorageKeyPrefix())));
+                new UpdateProjectCommand(projectId, request.getName(), request.getLocation(), request.getStorageKeyPrefix(), request.getTimezone())));
     }
 
     @Override
@@ -117,6 +117,7 @@ public class ProjectController implements ProjectApi {
                 result.cameraCount(),
                 result.latestSnapshotAt(),
                 result.storageKeyPrefix(),
+                result.timezone(),
                 result.createdAt() == null ? null : result.createdAt().toString()
         );
     }

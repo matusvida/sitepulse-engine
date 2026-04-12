@@ -6,6 +6,7 @@ import com.sitepulse.engine.detection.domain.model.DetectionProvider;
 public record DetectionExecutionResult(
         DetectionProvider provider,
         DetectionInference inference,
-        Integer analysisRunId
+        Integer analysisRunId,
+        String rawResponse
 ) {
 }

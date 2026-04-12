@@ -7,17 +7,18 @@ import com.sitepulse.engine.detection.application.result.DetectedObjectResult;
 import com.sitepulse.engine.detection.application.result.DetectionOutcomeResult;
 import com.sitepulse.engine.detection.application.service.DetectionExecutionResult;
 import com.sitepulse.engine.detection.application.service.DetectionExecutionService;
-import com.sitepulse.engine.detection.application.service.DetectionTrackingService;
+import com.sitepulse.engine.detection.application.service.DetectionPersistenceService;
 import com.sitepulse.engine.detection.domain.model.CameraRoiSettings;
+import com.sitepulse.engine.detection.domain.model.DetectedObject;
 import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.detection.domain.model.DetectionOutcome;
 import com.sitepulse.engine.detection.domain.model.DetectionTarget;
 import com.sitepulse.engine.detection.domain.port.CameraLookup;
 import com.sitepulse.engine.detection.domain.port.DetectionImageRepository;
-import com.sitepulse.engine.detection.domain.port.DetectionRecordRepository;
 import com.sitepulse.engine.detection.domain.service.DetectionPostProcessor;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,9 +30,8 @@ public class RunOnDemandDetectionUseCase {
 
     private final ObjectStorage objectStorage;
     private final DetectionExecutionService detectionExecutionService;
-    private final DetectionTrackingService detectionTrackingService;
+    private final DetectionPersistenceService detectionPersistenceService;
     private final DetectionImageRepository detectionImageRepository;
-    private final DetectionRecordRepository detectionRecordRepository;
     private final CameraLookup cameraLookup;
     private final DetectionPostProcessor detectionPostProcessor;
 
@@ -51,10 +51,11 @@ public class RunOnDemandDetectionUseCase {
         );
         image.markProcessing(now);
         image = detectionImageRepository.save(image);
+        DetectionExecutionResult execution = null;
         try {
             byte[] imageBytes = objectStorage.download(target.bucket(), target.key());
             CameraRoiSettings cameraSettings = target.projectId() == null ? null : cameraLookup.findRoiSettings(target.projectId(), target.key());
-            DetectionExecutionResult execution = detectionExecutionService.execute(image, imageBytes, cameraSettings);
+            execution = detectionExecutionService.execute(image, imageBytes, cameraSettings);
             DetectionOutcome outcome = detectionPostProcessor.process(
                     target.bucket(),
                     target.key(),
@@ -62,23 +63,19 @@ public class RunOnDemandDetectionUseCase {
                     execution.inference(),
                     cameraSettings
             );
-
-            if (!outcome.skipped()) {
-                var tracked = detectionTrackingService.assignTracks(image, outcome.detections(), execution.provider());
-                detectionRecordRepository.replaceDetections(image.getId(), target.projectId(), outcome.modelVersion(), execution.analysisRunId(), tracked);
-            }
-
-            image.markDone(OffsetDateTime.now(ZoneOffset.UTC));
-            detectionImageRepository.save(image);
-            return toResult(outcome);
+            List<DetectedObject> finalDetections = detectionPersistenceService.persistSuccess(image, outcome, execution);
+            return toResult(outcome, finalDetections);
         } catch (RuntimeException ex) {
-            image.markFailed(OffsetDateTime.now(ZoneOffset.UTC));
-            detectionImageRepository.save(image);
+            detectionPersistenceService.persistFailure(
+                    image,
+                    execution == null ? null : execution.analysisRunId(),
+                    ex.getMessage()
+            );
             throw ex;
         }
     }
 
-    private DetectionOutcomeResult toResult(DetectionOutcome outcome) {
+    private DetectionOutcomeResult toResult(DetectionOutcome outcome, List<DetectedObject> detections) {
         return new DetectionOutcomeResult(
                 outcome.modelVersion(),
                 outcome.bucket(),
@@ -86,7 +83,7 @@ public class RunOnDemandDetectionUseCase {
                 outcome.imageWidth(),
                 outcome.imageHeight(),
                 outcome.inferenceMs(),
-                outcome.detections().stream()
+                detections.stream()
                         .map(d -> new DetectedObjectResult(d.classId(), d.className(), d.score(), d.bboxXyxy(), d.inRoi(), d.trackId(), d.colorHint(), d.notes()))
                         .toList(),
                 outcome.warnings(),
