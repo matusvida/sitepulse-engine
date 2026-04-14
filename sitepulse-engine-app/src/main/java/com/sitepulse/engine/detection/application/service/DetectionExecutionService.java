@@ -53,20 +53,16 @@ public class DetectionExecutionService {
     private DetectionExecutionResult runOpenAi(DetectionImage image, byte[] imageBytes, Integer previousImageId, CameraRoiSettings cameraSettings) {
         DetectionContext context = detectionContextService.findPreviousContext(image).orElse(null);
         for (int attempt = 1; attempt <= 3; attempt++) {
+            Integer runId = detectionAnalysisRunService.startRun(
+                    image.getId(),
+                    previousImageId,
+                    DetectionProvider.OPENAI.name().toLowerCase(),
+                    properties.openaiModel(),
+                    openAiDetectionGateway.promptVersion(),
+                    attempt - 1
+            );
             try {
                 OpenAiDetectionResult result = openAiDetectionGateway.infer(imageBytes, context, cameraSettings);
-                Integer runId = detectionAnalysisRunService.recordRun(
-                        image.getId(),
-                        previousImageId,
-                        DetectionProvider.OPENAI.name().toLowerCase(),
-                        result.inference().modelVersion(),
-                        result.promptVersion(),
-                        attempt - 1,
-                        "success",
-                        result.inference().inferenceMs(),
-                        null,
-                        result.rawResponse()
-                );
                 log.info(
                         "OpenAI detection succeeded imageId={} prompt_version={} attempt={} roi_in_prompt={} detections={}",
                         image.getId(),
@@ -75,21 +71,10 @@ public class DetectionExecutionService {
                         result.roiIncluded(),
                         result.inference().rawDetections().size()
                 );
-                return new DetectionExecutionResult(DetectionProvider.OPENAI, result.inference(), runId);
+                return new DetectionExecutionResult(DetectionProvider.OPENAI, result.inference(), runId, result.rawResponse());
             } catch (RuntimeException ex) {
                 String failureReason = failureReason(ex);
-                detectionAnalysisRunService.recordRun(
-                        image.getId(),
-                        previousImageId,
-                        DetectionProvider.OPENAI.name().toLowerCase(),
-                        properties.openaiModel(),
-                        openAiDetectionGateway.promptVersion(),
-                        attempt - 1,
-                        "failed",
-                        null,
-                        failureReason + ": " + ex.getMessage(),
-                        null
-                );
+                detectionAnalysisRunService.completeFailure(runId, failureReason + ": " + ex.getMessage());
                 log.warn(
                         "OpenAI detection failed imageId={} prompt_version={} attempt={} reason={}",
                         image.getId(),
@@ -107,19 +92,15 @@ public class DetectionExecutionService {
 
     private DetectionExecutionResult runYolo(DetectionImage image, byte[] imageBytes, Integer previousImageId) {
         DetectionInference inference = yoloDetectionGateway.infer(imageBytes);
-        Integer runId = detectionAnalysisRunService.recordRun(
+        Integer runId = detectionAnalysisRunService.startRun(
                 image.getId(),
                 previousImageId,
                 DetectionProvider.YOLO.name().toLowerCase(),
                 inference.modelVersion(),
                 null,
-                0,
-                "success",
-                inference.inferenceMs(),
-                null,
-                null
+                0
         );
-        return new DetectionExecutionResult(DetectionProvider.YOLO, inference, runId);
+        return new DetectionExecutionResult(DetectionProvider.YOLO, inference, runId, null);
     }
 
     private String failureReason(RuntimeException ex) {

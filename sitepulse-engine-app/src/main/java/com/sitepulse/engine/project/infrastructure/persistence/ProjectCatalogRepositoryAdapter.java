@@ -30,12 +30,13 @@ public class ProjectCatalogRepositoryAdapter implements ProjectCatalogRepository
                 .name(project.getName())
                 .location(project.getLocation())
                 .storageKeyPrefix(project.getStorageKeyPrefix())
+                .timezone(project.getTimezone())
                 .createdAt(project.getCreatedAt())
                 .build();
         return toDomain(projectRepository.save(entity));
     }
 
     private Project toDomain(ProjectEntity entity) {
-        return Project.restore(entity.getId(), entity.getName(), entity.getLocation(), entity.getStorageKeyPrefix(), entity.getCreatedAt());
+        return Project.restore(entity.getId(), entity.getName(), entity.getLocation(), entity.getStorageKeyPrefix(), entity.getTimezone(), entity.getCreatedAt());
     }
 }

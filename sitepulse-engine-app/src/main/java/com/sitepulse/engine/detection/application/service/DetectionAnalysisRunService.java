@@ -8,6 +8,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -16,17 +17,14 @@ public class DetectionAnalysisRunService {
     private final DetectionAnalysisRunRepository detectionAnalysisRunRepository;
     private final ObjectMapper objectMapper;
 
-    public Integer recordRun(
+    @Transactional
+    public Integer startRun(
             Integer imageId,
             Integer previousImageId,
             String provider,
             String modelVersion,
             String promptVersion,
-            Integer retryCount,
-            String status,
-            Double latencyMs,
-            String error,
-            String rawResponse
+            Integer retryCount
     ) {
         DetectionAnalysisRunEntity run = DetectionAnalysisRunEntity.builder()
                 .imageId(imageId)
@@ -35,13 +33,30 @@ public class DetectionAnalysisRunService {
                 .modelVersion(modelVersion)
                 .promptVersion(promptVersion)
                 .retryCount(retryCount)
-                .status(status)
-                .latencyMs(latencyMs)
-                .error(error)
-                .rawResponse(toJsonNode(rawResponse))
+                .status("processing")
                 .createdAt(OffsetDateTime.now(ZoneOffset.UTC))
                 .build();
         return detectionAnalysisRunRepository.save(run).getId();
+    }
+
+    @Transactional
+    public void completeSuccess(Integer runId, Double latencyMs, String rawResponse) {
+        DetectionAnalysisRunEntity run = detectionAnalysisRunRepository.findById(runId)
+                .orElseThrow(() -> new IllegalStateException("Detection analysis run not found: " + runId));
+        run.setStatus("success");
+        run.setLatencyMs(latencyMs);
+        run.setError(null);
+        run.setRawResponse(toJsonNode(rawResponse));
+        detectionAnalysisRunRepository.save(run);
+    }
+
+    @Transactional
+    public void completeFailure(Integer runId, String error) {
+        DetectionAnalysisRunEntity run = detectionAnalysisRunRepository.findById(runId)
+                .orElseThrow(() -> new IllegalStateException("Detection analysis run not found: " + runId));
+        run.setStatus("failed");
+        run.setError(error);
+        detectionAnalysisRunRepository.save(run);
     }
 
     private JsonNode toJsonNode(String rawResponse) {

@@ -5,6 +5,8 @@ import com.sitepulse.engine.project.application.command.CreateProjectCommand;
 import com.sitepulse.engine.project.application.result.ProjectResult;
 import com.sitepulse.engine.project.domain.model.Project;
 import com.sitepulse.engine.project.domain.port.ProjectCatalogRepository;
+import com.sitepulse.engine.common.exception.ValidationException;
+import java.time.DateTimeException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
@@ -20,9 +22,13 @@ public class CreateProjectUseCase {
 
     @Transactional
     public ProjectResult create(CreateProjectCommand command) {
-        Project project = projectCatalogRepository.save(
-                Project.create(command.name(), command.location(), command.storageKeyPrefix(), OffsetDateTime.now(ZoneOffset.UTC))
-        );
-        return projectResultMapper.toResult(project);
+        try {
+            Project project = projectCatalogRepository.save(
+                    Project.create(command.name(), command.location(), command.storageKeyPrefix(), command.timezone(), OffsetDateTime.now(ZoneOffset.UTC))
+            );
+            return projectResultMapper.toResult(project);
+        } catch (DateTimeException | IllegalArgumentException ex) {
+            throw new ValidationException("Invalid timezone");
+        }
     }
 }

@@ -18,4 +18,5 @@ public class ProjectUpdateRequest {
     private String name;
     private String location;
     private String storageKeyPrefix;
+    private String timezone;
 }

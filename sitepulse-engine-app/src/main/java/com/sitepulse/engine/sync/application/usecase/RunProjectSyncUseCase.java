@@ -16,6 +16,7 @@ import com.sitepulse.engine.sync.domain.port.SyncSource;
 import com.sitepulse.engine.sync.domain.service.SyncFileParser;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,8 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @RequiredArgsConstructor
 public class RunProjectSyncUseCase {
+
+    private static final ZoneId DEFAULT_CAPTURE_ZONE = ZoneId.of("Europe/Bratislava");
 
     private final SyncSource syncSource;
     private final ObjectStorage objectStorage;
@@ -58,8 +61,12 @@ public class RunProjectSyncUseCase {
                         try {
                             byte[] bytes = syncSource.downloadFile(camera.getDropboxPath(), sourceImageFile.path());
                             objectStorage.upload(imageImport.bucket(), imageImport.key(), bytes, imageImport.contentType());
-                            imageCatalogRepository.saveImportedImage(imageImport);
-                            syncJob.recordImportedImage();
+                            if (imageCatalogRepository.saveImportedImage(imageImport)) {
+                                syncJob.recordImportedImage();
+                            } else {
+                                log.info("Skipping duplicate image import for projectId={} cameraId={} bucket={} key={}",
+                                        project.getId(), camera.getId(), imageImport.bucket(), imageImport.key());
+                            }
                         } catch (SitePulseException ex) {
                             log.warn("Failed to sync file for projectId={} cameraId={} file={} reason={}",
                                     project.getId(), camera.getId(), sourceImageFile.name(), ex.getMessage());
@@ -102,7 +109,7 @@ public class RunProjectSyncUseCase {
                 project.getId(),
                 objectStorage.defaultBucket(),
                 buildStorageKey(project, camera, folder, sourceImageFile.name()),
-                syncFileParser.parseCapturedAt(sourceImageFile.name(), folderDate),
+                syncFileParser.parseCapturedAt(sourceImageFile.name(), folderDate, resolveCaptureZone(project.getTimezone())),
                 syncFileParser.contentType(sourceImageFile.name())
         );
     }
@@ -136,5 +143,12 @@ public class RunProjectSyncUseCase {
 
     private String safeMessage(Throwable ex) {
         return ex.getMessage() == null || ex.getMessage().isBlank() ? ex.getClass().getSimpleName() : ex.getMessage();
+    }
+
+    private ZoneId resolveCaptureZone(String timezone) {
+        if (timezone == null || timezone.isBlank()) {
+            return DEFAULT_CAPTURE_ZONE;
+        }
+        return ZoneId.of(timezone);
     }
 }

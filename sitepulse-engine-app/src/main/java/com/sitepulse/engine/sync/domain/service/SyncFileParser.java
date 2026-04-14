@@ -1,8 +1,9 @@
 package com.sitepulse.engine.sync.domain.service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -24,21 +25,21 @@ public class SyncFileParser {
         ));
     }
 
-    public OffsetDateTime parseCapturedAt(String fileName, LocalDate folderDate) {
+    public OffsetDateTime parseCapturedAt(String fileName, LocalDate folderDate, ZoneId sourceZone) {
         Matcher matcher = FILE_TIMESTAMP.matcher(fileName);
         if (!matcher.find()) {
-            return folderDate.atStartOfDay().atOffset(ZoneOffset.UTC);
+            return folderDate.atStartOfDay(sourceZone).toOffsetDateTime();
         }
-        return OffsetDateTime.of(
+        LocalDateTime localDateTime = LocalDateTime.of(
                 Integer.parseInt(matcher.group(1)),
                 Integer.parseInt(matcher.group(2)),
                 Integer.parseInt(matcher.group(3)),
                 Integer.parseInt(matcher.group(4)),
                 Integer.parseInt(matcher.group(5)),
                 Integer.parseInt(matcher.group(6)),
-                0,
-                ZoneOffset.UTC
+                0
         );
+        return localDateTime.atZone(sourceZone).toOffsetDateTime();
     }
 
     public String contentType(String fileName) {

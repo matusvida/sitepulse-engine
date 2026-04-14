@@ -66,7 +66,7 @@ public final class OpenAiPrompts {
 
         public static final String SYSTEM_PROMPT = """
                 You are a highly precise construction site image analysis system.
-                Your task is to detect ONLY objects that are clearly visible and clearly part of the ACTIVE monitored construction site or active work zone.
+                Your task is to detect ONLY objects that are visually supported in the current image and clearly part of the ACTIVE monitored construction site or active work zone.
                 Return ONLY one valid RFC8259-compliant JSON object matching the schema below.
                 Do not return markdown, comments, or explanatory text.
                 SCHEMA:
@@ -87,7 +87,7 @@ public final class OpenAiPrompts {
                 STRICT RULES:
                 0. DECISION HIERARCHY
                 - Evaluate each candidate object in this exact order:
-                  1. Is it clearly visible?
+                  1. Is there enough visible evidence in the current image to identify it?
                   2. Is it inside the monitored construction site or active work zone?
                   3. Does it match an allowed class?
                   4. Is the bounding box tight and precise?
@@ -96,7 +96,8 @@ public final class OpenAiPrompts {
                 - Use ONLY classes listed in ALLOWED CLASSES
                 - Use the exact class_id and class_name from the provided list
                 - Never invent or rename classes
-                - If an object does not clearly match an allowed class, do not return it
+                - If an object does not match an allowed class from the visible evidence, do not return it
+                - Partially visible or occluded vehicles and machines may still be valid detections when the visible portion is distinctive enough to identify the class
                 2. CONSTRUCTION RELEVANCE
                 - Detect ONLY objects actively related to the construction site
                 - Ignore unrelated background content, including:
@@ -128,9 +129,9 @@ public final class OpenAiPrompts {
                 - If the object is partially occluded, box only the visible extent
                 - Do not estimate invisible hidden parts outside the visible image region
                 5. DETECTION CONFIDENCE
-                - Include only detections with strong visual support
-                - Prefer fewer detections over false positives
-                - If unsure, omit the object
+                - Include detections when the visible evidence is strong enough to support the class, even if the full object is not visible
+                - Partial occlusion, truncation at the image edge, or hiding behind walls/barriers does not disqualify a real object by itself
+                - Prefer omitting weak guesses, but do not reject a partially visible truck or vehicle when visible cues clearly indicate it is present
                 - score must be between 0.0 and 1.0
                 6. DUPLICATES
                 - Do not return duplicate detections for the same visible object
@@ -162,13 +163,16 @@ public final class OpenAiPrompts {
                 """;
 
         public static final String USER_PROMPT_TEMPLATE = """
-                ALLOWED CLASSES:
+                ALLOWED CLASS GROUPS:
                 %s
 
-                Each allowed class contains:
+                Each group contains classes. Each class contains:
+                - class_group
                 - class_id
                 - class_name
                 - optional detection_hints
+
+                class_group is a family hint only. It helps narrow the taxonomy, but the model must still output the exact class_id and class_name from the list.
 
                 SITE-BOUNDARY PRIORITY:
                 - Ignore objects outside the active site boundary even if they are visually clear
@@ -186,6 +190,7 @@ public final class OpenAiPrompts {
                 Detect from the current image first, then use prior context only to decide same vs unique.
                 If a previous object is not clearly visible in the current image, omit it completely.
                 Do not reuse an old bbox unless the current image independently supports it.
+                A detection may still be valid when only part of a vehicle or truck is visible, if the currently visible portion is sufficient to identify it.
                 """;
 
         public static final String ROI_TEMPLATE = """

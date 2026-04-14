@@ -24,4 +24,7 @@ public class DetectionClassEntity {
 
     @Column(name = "class_name", nullable = false, length = 128)
     private String className;
+
+    @Column(name = "class_group", nullable = false, length = 64)
+    private String classGroup;
 }

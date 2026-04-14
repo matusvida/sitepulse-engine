@@ -1,6 +1,7 @@
 package com.sitepulse.engine.detection.infrastructure.external.openai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiPrompts;
 import com.sitepulse.engine.config.SitePulseProperties;
 import com.sitepulse.engine.detection.application.service.DetectionClassCatalog;
 import com.sitepulse.engine.detection.domain.model.CameraRoiSettings;
@@ -18,26 +19,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class OpenAiDetectionGatewayTest {
 
     @Test
-    void buildUserPromptIncludesAllowedClassesExactlyOnce() {
+    void buildUserPromptGroupsAllowedClassesByFamily() {
         OpenAiDetectionGateway gateway = gatewayWithClasses(
-                new DetectionClassEntity(1, "worker"),
-                new DetectionClassEntity(2, "excavator")
+                new DetectionClassEntity(1, "worker", "people"),
+                new DetectionClassEntity(2, "truck", "truck"),
+                new DetectionClassEntity(3, "excavator", "earthmoving")
         );
 
         String prompt = gateway.buildUserPrompt(null, null, 1280, 720);
 
-        assertEquals(1, occurrences(prompt, "\"class_name\":\"worker\""));
-        assertEquals(1, occurrences(prompt, "\"class_name\":\"excavator\""));
-        assertEquals(1, occurrences(prompt, "ALLOWED CLASSES:"));
+        assertEquals(1, occurrences(prompt, "ALLOWED CLASS GROUPS:"));
+        assertTrue(prompt.contains("\"class_group\":\"people\""));
+        assertTrue(prompt.contains("\"class_group\":\"truck\""));
+        assertTrue(prompt.contains("\"class_group\":\"earthmoving\""));
+        assertTrue(prompt.contains("class_group is a family hint only"));
         assertTrue(prompt.contains("\"detection_hints\":\"construction worker, often with PPE or workwear\""));
         assertFalse(prompt.contains("typical_width_m"));
         assertFalse(prompt.contains("typical_height_m"));
         assertFalse(prompt.contains("typical_length_m"));
+        assertTrue(prompt.indexOf("\"class_group\":\"people\"") < prompt.indexOf("\"class_group\":\"truck\""));
+        assertTrue(prompt.indexOf("\"class_group\":\"truck\"") < prompt.indexOf("\"class_group\":\"earthmoving\""));
     }
 
     @Test
     void buildUserPromptIncludesPreviousDetectionsAndFallbackImageDimensions() {
-        OpenAiDetectionGateway gateway = gatewayWithClasses(new DetectionClassEntity(1, "worker"));
+        OpenAiDetectionGateway gateway = gatewayWithClasses(new DetectionClassEntity(1, "worker", "people"));
         DetectionContext context = new DetectionContext(
                 77,
                 List.of(new DetectionContextItem(42, 1, "worker", List.of(10.0, 20.0, 30.0, 40.0), "yellow")),
@@ -57,7 +63,7 @@ class OpenAiDetectionGatewayTest {
 
     @Test
     void buildUserPromptIncludesRoiSectionOnlyWhenRoiExists() {
-        OpenAiDetectionGateway gateway = gatewayWithClasses(new DetectionClassEntity(1, "worker"));
+        OpenAiDetectionGateway gateway = gatewayWithClasses(new DetectionClassEntity(1, "worker", "people"));
         CameraRoiSettings withRoi = new CameraRoiSettings(
                 List.of(
                         List.of(0.0, 0.0),
@@ -80,12 +86,40 @@ class OpenAiDetectionGatewayTest {
         assertFalse(promptWithoutRoi.contains("ROI SITE-BOUNDARY GUIDANCE:"));
     }
 
+    @Test
+    void detectionPromptsAllowPartiallyVisibleVehiclesWhenVisuallySupported() {
+        assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
+                "Partially visible or occluded vehicles and machines may still be valid detections"
+        ));
+        assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
+                "Partial occlusion, truncation at the image edge, or hiding behind walls/barriers does not disqualify a real object by itself"
+        ));
+
+        OpenAiDetectionGateway gateway = gatewayWithClasses(new DetectionClassEntity(8, "truck", "truck"));
+        String prompt = gateway.buildUserPrompt(null, null, 1920, 1080);
+
+        assertTrue(prompt.contains(
+                "A detection may still be valid when only part of a vehicle or truck is visible"
+        ));
+        assertTrue(prompt.contains("\"class_group\":\"truck\""));
+    }
+
     private OpenAiDetectionGateway gatewayWithClasses(DetectionClassEntity... classes) {
         DetectionClassCatalog detectionClassCatalog = new DetectionClassCatalog(null) {
             @Override
             public Map<Integer, DetectionClassEntity> byId() {
                 return java.util.Arrays.stream(classes)
                         .collect(java.util.stream.Collectors.toMap(DetectionClassEntity::getId, val -> val));
+            }
+
+            @Override
+            public Map<String, List<DetectionClassEntity>> byGroup() {
+                return java.util.Arrays.stream(classes)
+                        .collect(java.util.stream.Collectors.groupingBy(
+                                DetectionClassEntity::getClassGroup,
+                                java.util.LinkedHashMap::new,
+                                java.util.stream.Collectors.toList()
+                        ));
             }
         };
         return new OpenAiDetectionGateway(null, testProperties(), new ObjectMapper(), detectionClassCatalog);

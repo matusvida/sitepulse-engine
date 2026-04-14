@@ -4,7 +4,6 @@ import com.sitepulse.engine.project.domain.port.ProjectCatalogRepository;
 import com.sitepulse.engine.project.domain.port.CameraCatalogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -16,7 +15,6 @@ public class RunScheduledSyncUseCase {
     private final CameraCatalogRepository cameraCatalogRepository;
     private final RunProjectSyncUseCase runProjectSyncUseCase;
 
-    @Async("applicationTaskExecutor")
     public void run() {
         var projects = projectCatalogRepository.findAll();
         log.info("Starting scheduled sync for {} projects", projects.size());

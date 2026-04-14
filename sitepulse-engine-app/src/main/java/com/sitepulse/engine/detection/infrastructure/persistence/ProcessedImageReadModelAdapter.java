@@ -73,7 +73,7 @@ public class ProcessedImageReadModelAdapter implements ProcessedImageReadModel {
                 className,
                 detectionEntity.getScore(),
                 jsonUtils.readDoubleList(detectionEntity.getBboxXyxy()),
-                detectionEntity.getInRoi() == null ? null : Boolean.valueOf(detectionEntity.getInRoi()),
+                detectionEntity.getInRoi(),
                 detectionEntity.getTrackId(),
                 detectionEntity.getColorHint(),
                 detectionEntity.getNotes()

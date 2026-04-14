@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -37,7 +38,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class OpenAiDetectionGateway {
 
-    private static final String PROMPT_VERSION = "v2-roi-guided";
+    private static final String PROMPT_VERSION = "v3-roi-guided-occlusion";
     private final OpenAiFeignClient openAiFeignClient;
     private final SitePulseProperties properties;
     private final ObjectMapper objectMapper;
@@ -136,7 +137,7 @@ public class OpenAiDetectionGateway {
     }
 
     String buildUserPrompt(DetectionContext context, CameraRoiSettings cameraSettings, int imageWidth, int imageHeight) {
-        String classesJson = serialize(toClassList());
+        String classesJson = serialize(toClassGroups());
         String contextJson = context == null ? "[]" : serialize(context.detections());
         String contextImageId = context == null ? "none" : String.valueOf(context.imageId());
         String previousDetectionResponse = context == null || context.previousDetectionResponse() == null
@@ -162,27 +163,32 @@ public class OpenAiDetectionGateway {
         return prompt + Detection.FALLBACK_IMAGE_DIMENSIONS_TEMPLATE.formatted(imageWidth, imageHeight);
     }
 
-    private List<Map<String, Object>> toClassList() {
-        return detectionClassCatalog.byId().values().stream()
-                .sorted(Comparator.comparing(DetectionClassEntity::getId))
-                .filter(entry -> entry.getId() != 0)
-                .map(entry -> toClassDescriptor(entry.getId(), entry.getClassName()))
+    private List<Map<String, Object>> toClassGroups() {
+        return detectionClassCatalog.byGroup().entrySet().stream()
+                .map(entry -> toGroupDescriptor(entry.getKey(), entry.getValue()))
                 .toList();
     }
 
-    private Map<String, Object> toClassDescriptor(Integer classId, String className) {
-        Detection.ClassHint hint = Detection.CLASS_HINTS.get(className);
-        if (hint == null) {
-            return Map.of(
-                    "class_id", classId,
-                    "class_name", className
-            );
+    private Map<String, Object> toGroupDescriptor(String classGroup, List<DetectionClassEntity> classes) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("class_group", classGroup);
+        descriptor.put("classes", classes.stream()
+                .filter(entry -> entry.getId() != 0)
+                .map(this::toClassDescriptor)
+                .toList());
+        return descriptor;
+    }
+
+    private Map<String, Object> toClassDescriptor(DetectionClassEntity entry) {
+        Map<String, Object> descriptor = new LinkedHashMap<>();
+        descriptor.put("class_group", entry.getClassGroup());
+        descriptor.put("class_id", entry.getId());
+        descriptor.put("class_name", entry.getClassName());
+        Detection.ClassHint hint = Detection.CLASS_HINTS.get(entry.getClassName());
+        if (hint != null) {
+            descriptor.put("detection_hints", hint.detectionHints());
         }
-        return Map.of(
-                "class_id", classId,
-                "class_name", className,
-                "detection_hints", hint.detectionHints()
-        );
+        return descriptor;
     }
 
     private List<RawDetection> toRawDetections(OpenAiDetectionPayload payload, int width, int height) {
@@ -325,8 +331,10 @@ public class OpenAiDetectionGateway {
     }
 
     private String summarizeClasses() {
-        return toClassList().stream()
-                .map(entry -> String.valueOf(entry.get("class_name")))
+        return detectionClassCatalog.byId().values().stream()
+                .sorted(Comparator.comparing(DetectionClassEntity::getId))
+                .filter(entry -> entry.getId() != 0)
+                .map(DetectionClassEntity::getClassName)
                 .collect(Collectors.joining(","));
     }
 

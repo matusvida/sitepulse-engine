@@ -2,6 +2,7 @@ package com.sitepulse.engine.sync.domain.service;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -40,14 +41,18 @@ class SyncFileParserTest {
 
     @Test
     void parseCapturedAtFromFilename() {
-        OffsetDateTime result = parser.parseCapturedAt("cam1_2024-06-15_10_30_00.jpg", LocalDate.of(2024, 6, 15));
-        assertEquals(OffsetDateTime.of(2024, 6, 15, 10, 30, 0, 0, ZoneOffset.UTC), result);
+        OffsetDateTime result = parser.parseCapturedAt(
+                "cam1_2024-06-15_10_30_00.jpg",
+                LocalDate.of(2024, 6, 15),
+                ZoneId.of("Europe/Bratislava")
+        );
+        assertEquals(OffsetDateTime.of(2024, 6, 15, 10, 30, 0, 0, ZoneOffset.ofHours(2)), result);
     }
 
     @Test
     void parseCapturedAtFallsBackToFolderDate() {
-        OffsetDateTime result = parser.parseCapturedAt("image.jpg", LocalDate.of(2024, 6, 15));
-        assertEquals(LocalDate.of(2024, 6, 15).atStartOfDay().atOffset(ZoneOffset.UTC), result);
+        OffsetDateTime result = parser.parseCapturedAt("image.jpg", LocalDate.of(2024, 6, 15), ZoneId.of("Europe/Bratislava"));
+        assertEquals(LocalDate.of(2024, 6, 15).atStartOfDay(ZoneId.of("Europe/Bratislava")).toOffsetDateTime(), result);
     }
 
     @Test

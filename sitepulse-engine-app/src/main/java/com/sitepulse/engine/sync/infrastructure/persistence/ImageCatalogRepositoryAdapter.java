@@ -8,11 +8,14 @@ import com.sitepulse.engine.sync.domain.port.ImageCatalogRepository;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Repository
+@Slf4j
 @RequiredArgsConstructor
 public class ImageCatalogRepositoryAdapter implements ImageCatalogRepository {
 
@@ -26,17 +29,26 @@ public class ImageCatalogRepositoryAdapter implements ImageCatalogRepository {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void saveImportedImage(ImageImport imageImport) {
-        Integer cameraId = resolveCameraId(imageImport.projectId(), imageImport.key());
-        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-        detectionImageRepository.save(DetectionImage.createNew(
-                imageImport.bucket(),
-                imageImport.key(),
-                imageImport.projectId(),
-                cameraId,
-                imageImport.capturedAt(),
-                now
-        ));
+    public boolean saveImportedImage(ImageImport imageImport) {
+        try {
+            Integer cameraId = resolveCameraId(imageImport.projectId(), imageImport.key());
+            OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+            detectionImageRepository.save(DetectionImage.createNew(
+                    imageImport.bucket(),
+                    imageImport.key(),
+                    imageImport.projectId(),
+                    cameraId,
+                    imageImport.capturedAt(),
+                    now
+            ));
+            return true;
+        } catch (DataIntegrityViolationException ex) {
+            if (detectionImageRepository.existsByBucketAndKey(imageImport.bucket(), imageImport.key())) {
+                log.info("Ignoring duplicate image row for bucket={} key={} after concurrent sync", imageImport.bucket(), imageImport.key());
+                return false;
+            }
+            throw ex;
+        }
     }
 
     @Override
