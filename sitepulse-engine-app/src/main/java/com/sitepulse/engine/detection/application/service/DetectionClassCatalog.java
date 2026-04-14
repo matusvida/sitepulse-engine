@@ -3,6 +3,11 @@ package com.sitepulse.engine.detection.application.service;
 import com.sitepulse.engine.detection.infrastructure.persistence.DetectionClassEntity;
 import com.sitepulse.engine.detection.infrastructure.persistence.DetectionClassRepository;
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -14,9 +19,26 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class DetectionClassCatalog {
 
+    private static final List<String> CLASS_GROUP_ORDER = List.of(
+            "people",
+            "light_vehicle",
+            "truck",
+            "transport",
+            "earthmoving",
+            "lifting",
+            "paving",
+            "structure",
+            "power",
+            "aerial",
+            "other_vehicle",
+            "other_equipment",
+            "unknown"
+    );
+
     private final DetectionClassRepository detectionClassRepository;
     private final AtomicReference<Map<Integer, DetectionClassEntity>> byIdCache = new AtomicReference<>();
     private final AtomicReference<Map<String, DetectionClassEntity>> byNameCache = new AtomicReference<>();
+    private final AtomicReference<Map<String, List<DetectionClassEntity>>> byGroupCache = new AtomicReference<>();
 
     public Map<Integer, DetectionClassEntity> byId() {
         ensureLoaded();
@@ -37,6 +59,11 @@ public class DetectionClassCatalog {
         }
         ensureLoaded();
         return Optional.ofNullable(byNameCache.get().get(normalize(name)));
+    }
+
+    public Map<String, List<DetectionClassEntity>> byGroup() {
+        ensureLoaded();
+        return byGroupCache.get();
     }
 
     public DetectionClassEntity resolveByNameOrDefault(String name, String defaultName) {
@@ -60,6 +87,7 @@ public class DetectionClassCatalog {
     public void refresh() {
         byIdCache.set(null);
         byNameCache.set(null);
+        byGroupCache.set(null);
     }
 
     private void ensureLoaded() {
@@ -72,17 +100,46 @@ public class DetectionClassCatalog {
             }
             Map<Integer, DetectionClassEntity> byId = new HashMap<>();
             Map<String, DetectionClassEntity> byName = new HashMap<>();
-            for (DetectionClassEntity entity : detectionClassRepository.findAll()) {
+            Map<String, List<DetectionClassEntity>> byGroup = new LinkedHashMap<>();
+            for (DetectionClassEntity entity : detectionClassRepository.findAll().stream()
+                    .sorted(Comparator.comparing(DetectionClassEntity::getId))
+                    .toList()) {
                 byId.put(entity.getId(), entity);
                 byName.put(normalize(entity.getClassName()), entity);
+                String group = normalizeGroup(entity.getClassGroup());
+                byGroup.computeIfAbsent(group, ignored -> new ArrayList<>()).add(entity);
             }
             byIdCache.set(Map.copyOf(byId));
             byNameCache.set(Map.copyOf(byName));
+            byGroupCache.set(orderGroups(byGroup));
         }
     }
 
     private String normalize(String value) {
         return value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeGroup(String value) {
+        if (value == null || value.isBlank()) {
+            return "unknown";
+        }
+        return normalize(value);
+    }
+
+    private Map<String, List<DetectionClassEntity>> orderGroups(Map<String, List<DetectionClassEntity>> grouped) {
+        Map<String, List<DetectionClassEntity>> ordered = new LinkedHashMap<>();
+        for (String group : CLASS_GROUP_ORDER) {
+            List<DetectionClassEntity> entries = grouped.get(group);
+            if (entries != null && !entries.isEmpty()) {
+                ordered.put(group, List.copyOf(entries));
+            }
+        }
+        grouped.forEach((group, entries) -> {
+            if (!ordered.containsKey(group)) {
+                ordered.put(group, List.copyOf(entries));
+            }
+        });
+        return Collections.unmodifiableMap(ordered);
     }
 
     private Optional<DetectionClassEntity> alias(String normalized) {
