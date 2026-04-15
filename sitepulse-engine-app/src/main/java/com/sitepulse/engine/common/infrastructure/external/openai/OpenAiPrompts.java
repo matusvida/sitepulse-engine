@@ -66,7 +66,7 @@ public final class OpenAiPrompts {
 
         public static final String SYSTEM_PROMPT = """
                 You are a highly precise construction site image analysis system.
-                Your task is to detect ONLY objects that are visually supported in the current image and clearly part of the ACTIVE monitored construction site or active work zone.
+                Your task is to detect ONLY objects that are visually supported in the current image and clearly part of the monitored construction site boundary.
                 Return ONLY one valid RFC8259-compliant JSON object matching the schema below.
                 Do not return markdown, comments, or explanatory text.
                 SCHEMA:
@@ -99,13 +99,19 @@ public final class OpenAiPrompts {
                 - If an object does not match an allowed class from the visible evidence, do not return it
                 - Partially visible or occluded vehicles and machines may still be valid detections when the visible portion is distinctive enough to identify the class
                 2. CONSTRUCTION RELEVANCE
-                - Detect ONLY objects actively related to the construction site
+                - Detect ONLY objects that are inside the monitored construction site boundary and relevant to the project
+                - The monitored site may include the excavation area, internal access roads, staging areas, equipment laydown zones, and on-site worker or vehicle parking areas
+                - An object does not need to be actively moving or currently working to be valid
+                - Parked trucks, work vans, machinery, and site vehicles are valid detections if they are clearly inside the monitored site
+                - Do not reject an object merely because it is distant, near the top of the image, stationary, or parked
+                - Valid site objects may appear in the upper quarter of the image due to perspective
+                - Do not treat top-of-frame objects as outside the site by default
                 - Ignore unrelated background content, including:
                   - road traffic
-                  - public traffic beyond the site fence or outside the active work zone
-                  - parked public vehicles outside the active work area
+                  - public traffic beyond the site fence or outside the monitored site boundary
+                  - parked public vehicles outside the monitored site boundary
                   - parked street vehicles outside the site
-                  - nearby buildings not part of the active work
+                  - nearby buildings not part of the monitored project
                   - neighboring cranes, neighboring buildings, or infrastructure not part of the monitored project
                   - vegetation, sky, street furniture, signs
                   - pedestrians not involved in site work
@@ -175,22 +181,24 @@ public final class OpenAiPrompts {
                 class_group is a family hint only. It helps narrow the taxonomy, but the model must still output the exact class_id and class_name from the list.
 
                 SITE-BOUNDARY PRIORITY:
-                - Ignore objects outside the active site boundary even if they are visually clear
-                - Road traffic, sidewalk pedestrians, and adjacent-property equipment are out of scope unless they are clearly inside the monitored work zone
-                - Previous detections are tracking context only and are never evidence that a new object exists now
+                - Detect objects anywhere inside the monitored construction site boundary, not only in the active excavation or work zone
+                - Valid site areas may include the excavation, internal roads, staging areas, laydown zones, and on-site parking areas
+                - Parked on-site trucks, work vehicles, and machinery are valid detections when they are clearly inside the monitored site
+                - Ignore objects outside the monitored site boundary even if they are visually clear
+                - Road traffic, sidewalk pedestrians, and adjacent-property equipment are out of scope unless they are clearly inside the monitored site
+                - Do not reject an object merely because it appears small, distant, in the upper part of the image, or stationary
+                - The only historical context provided below is a compact prior detections snapshot
+                - That snapshot is tracking context only and is never evidence that a new object exists now
 
-                PREVIOUS DETECTIONS FROM image_id=%s:
+                PRIOR DETECTIONS SNAPSHOT FROM image_id=%s:
                 %s
 
-                PREVIOUS DETECTION RESPONSE NOTE FROM image_id=%s:
-                %s
-
-                Use the previous detection response only as tracking context for continuity, not as evidence for new detections.
-                Use the previous detections only as context for tracking identity.
+                Use the prior detections only as context for tracking identity.
                 Detect from the current image first, then use prior context only to decide same vs unique.
                 If a previous object is not clearly visible in the current image, omit it completely.
                 Do not reuse an old bbox unless the current image independently supports it.
                 A detection may still be valid when only part of a vehicle or truck is visible, if the currently visible portion is sufficient to identify it.
+                A parked or distant on-site truck remains a valid detection if it is clearly visible inside the monitored site boundary.
                 """;
 
         public static final String ROI_TEMPLATE = """

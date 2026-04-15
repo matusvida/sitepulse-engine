@@ -15,8 +15,8 @@ sitepulse:
     access-key: admin
     secret-key: password123
     region: eu-central-1
-  sync-cron: 0 8/10 * * * *
-  detection-sweep-cron: 0 6/10 * * * *
+  sync-cron: 0 8/20 * * * *
+  detection-sweep-cron: 0 7/20 * * * *
   detection-provider: openai
   dropbox-token: ${DROPBOX_TOKEN:}
   dropbox-app-key: ${DROPBOX_APP_KEY:}

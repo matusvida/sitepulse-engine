@@ -42,20 +42,19 @@ class OpenAiDetectionGatewayTest {
     }
 
     @Test
-    void buildUserPromptIncludesPreviousDetectionsAndFallbackImageDimensions() {
+    void buildUserPromptIncludesPreviousDetectionsWithoutRawResponseAndFallbackImageDimensions() {
         OpenAiDetectionGateway gateway = gatewayWithClasses(new DetectionClassEntity(1, "worker", "people"));
         DetectionContext context = new DetectionContext(
                 77,
-                List.of(new DetectionContextItem(42, 1, "worker", List.of(10.0, 20.0, 30.0, 40.0), "yellow")),
-                "{\"detections\":[{\"track_id\":42,\"class_name\":\"worker\"}]}"
+                List.of(new DetectionContextItem(42, 1, "worker", List.of(10.0, 20.0, 30.0, 40.0), "yellow"))
         );
 
         String prompt = gateway.buildUserPrompt(context, null, 1920, 1080);
 
-        assertTrue(prompt.contains("PREVIOUS DETECTIONS FROM image_id=77"));
+        assertTrue(prompt.contains("PRIOR DETECTIONS SNAPSHOT FROM image_id=77"));
         assertTrue(prompt.contains("\"trackId\":42"));
-        assertTrue(prompt.contains("PREVIOUS DETECTION RESPONSE NOTE FROM image_id=77"));
-        assertTrue(prompt.contains("{\"detections\":[{\"track_id\":42,\"class_name\":\"worker\"}]}"));
+        assertFalse(prompt.contains("PREVIOUS DETECTION RESPONSE NOTE"));
+        assertFalse(prompt.contains("{\"detections\":[{\"track_id\":42,\"class_name\":\"worker\"}]}"));
         assertTrue(prompt.contains("CURRENT IMAGE DIMENSIONS:"));
         assertTrue(prompt.contains("- width=1920"));
         assertTrue(prompt.contains("- height=1080"));
@@ -94,12 +93,24 @@ class OpenAiDetectionGatewayTest {
         assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
                 "Partial occlusion, truncation at the image edge, or hiding behind walls/barriers does not disqualify a real object by itself"
         ));
+        assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
+                "Parked trucks, work vans, machinery, and site vehicles are valid detections if they are clearly inside the monitored site"
+        ));
+        assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
+                "Do not treat top-of-frame objects as outside the site by default"
+        ));
 
         OpenAiDetectionGateway gateway = gatewayWithClasses(new DetectionClassEntity(8, "truck", "truck"));
         String prompt = gateway.buildUserPrompt(null, null, 1920, 1080);
 
         assertTrue(prompt.contains(
                 "A detection may still be valid when only part of a vehicle or truck is visible"
+        ));
+        assertTrue(prompt.contains(
+                "Parked on-site trucks, work vehicles, and machinery are valid detections"
+        ));
+        assertTrue(prompt.contains(
+                "Do not reject an object merely because it appears small, distant, in the upper part of the image, or stationary"
         ));
         assertTrue(prompt.contains("\"class_group\":\"truck\""));
     }

@@ -4,7 +4,6 @@ import java.util.List;
 
 public record DetectionContext(
         Integer imageId,
-        List<DetectionContextItem> detections,
-        String previousDetectionResponse
+        List<DetectionContextItem> detections
 ) {
 }

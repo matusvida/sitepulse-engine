@@ -124,7 +124,7 @@ public class OpenAiDetectionGateway {
         contentParts.add(Map.of("type", "text", "text", userPrompt));
         contentParts.add(Map.of(
                 "type", "image_url",
-                "image_url", Map.of("url", "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(imageBytes), "detail", "low")
+                "image_url", Map.of("url", "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(imageBytes), "detail", "high")
         ));
         return List.of(
                 Map.of("role", "system", "content", systemPrompt),
@@ -140,15 +140,10 @@ public class OpenAiDetectionGateway {
         String classesJson = serialize(toClassGroups());
         String contextJson = context == null ? "[]" : serialize(context.detections());
         String contextImageId = context == null ? "none" : String.valueOf(context.imageId());
-        String previousDetectionResponse = context == null || context.previousDetectionResponse() == null
-                ? "null"
-                : context.previousDetectionResponse();
         String prompt = Detection.USER_PROMPT_TEMPLATE.formatted(
                 classesJson,
                 contextImageId,
-                contextJson,
-                contextImageId,
-                previousDetectionResponse
+                contextJson
         );
         if (cameraSettings != null && cameraSettings.hasRoi()) {
             prompt += Detection.ROI_TEMPLATE.formatted(

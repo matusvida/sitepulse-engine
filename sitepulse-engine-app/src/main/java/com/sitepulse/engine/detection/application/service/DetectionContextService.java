@@ -1,14 +1,10 @@
 package com.sitepulse.engine.detection.application.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sitepulse.engine.common.util.JsonUtils;
 import com.sitepulse.engine.detection.domain.model.DetectionContext;
 import com.sitepulse.engine.detection.domain.model.DetectionContextItem;
 import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.detection.domain.model.ImageStatus;
-import com.sitepulse.engine.detection.infrastructure.persistence.DetectionAnalysisRunRepository;
 import com.sitepulse.engine.detection.infrastructure.persistence.DetectionClassEntity;
 import com.sitepulse.engine.detection.infrastructure.persistence.DetectionEntity;
 import com.sitepulse.engine.detection.infrastructure.persistence.DetectionRepository;
@@ -28,8 +24,6 @@ public class DetectionContextService {
     private final DetectionRepository detectionRepository;
     private final JsonUtils jsonUtils;
     private final DetectionClassCatalog detectionClassCatalog;
-    private final DetectionAnalysisRunRepository detectionAnalysisRunRepository;
-    private final ObjectMapper objectMapper;
 
     public Optional<DetectionContext> findPreviousContext(DetectionImage image) {
         if (image.getProjectId() == null) {
@@ -47,8 +41,7 @@ public class DetectionContextService {
         }
         return Optional.of(new DetectionContext(
                 previous.get().getId(),
-                items,
-                findPreviousDetectionResponse(previous.get().getId())
+                items
         ));
     }
 
@@ -85,22 +78,5 @@ public class DetectionContextService {
                 jsonUtils.readDoubleList(detectionEntity.getBboxXyxy()),
                 detectionEntity.getColorHint()
         );
-    }
-
-    private String findPreviousDetectionResponse(Integer imageId) {
-        return detectionAnalysisRunRepository.findTopByImageIdOrderByIdDesc(imageId)
-                .map(run -> serialize(run.getRawResponse()))
-                .orElse(null);
-    }
-
-    private String serialize(JsonNode rawResponse) {
-        if (rawResponse == null || rawResponse.isNull()) {
-            return null;
-        }
-        try {
-            return objectMapper.writeValueAsString(rawResponse);
-        } catch (JsonProcessingException ex) {
-            throw new IllegalStateException("Unable to serialize previous detection response", ex);
-        }
     }
 }

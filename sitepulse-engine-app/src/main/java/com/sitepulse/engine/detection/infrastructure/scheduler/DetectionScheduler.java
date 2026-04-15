@@ -24,6 +24,6 @@ public class DetectionScheduler {
             return;
         }
         log.info("Running scheduled detection sweep");
-        processPendingImagesUseCase.process(20);
+        processPendingImagesUseCase.process(91);
     }
 }
