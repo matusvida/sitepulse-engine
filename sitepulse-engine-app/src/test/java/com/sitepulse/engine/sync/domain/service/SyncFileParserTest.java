@@ -1,5 +1,6 @@
 package com.sitepulse.engine.sync.domain.service;
 
+import com.sitepulse.engine.common.domain.model.ImageFormat;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -57,11 +58,11 @@ class SyncFileParserTest {
 
     @Test
     void contentTypeForPng() {
-        assertEquals("image/png", parser.contentType("photo.PNG"));
+        assertEquals(ImageFormat.PNG.getMediaType(), parser.contentType("photo.PNG"));
     }
 
     @Test
     void contentTypeDefaultsToJpeg() {
-        assertEquals("image/jpeg", parser.contentType("photo.jpg"));
+        assertEquals(ImageFormat.JPEG.getMediaType(), parser.contentType("photo.jpg"));
     }
 }

@@ -2,6 +2,7 @@ package com.sitepulse.engine.sync.infrastructure.external;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sitepulse.engine.common.domain.model.ImageFormat;
 import com.sitepulse.engine.common.exception.ConfigurationException;
 import com.sitepulse.engine.common.exception.ExternalServiceException;
 import com.sitepulse.engine.config.SitePulseProperties;
@@ -190,8 +191,7 @@ public class DropboxClientService {
     }
 
     private boolean isImage(String name) {
-        String lower = name.toLowerCase();
-        return lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png");
+        return ImageFormat.fromFileName(name).isPresent();
     }
 
     private ParsedDropboxUrl parseSharedLinkUrl(String url) {

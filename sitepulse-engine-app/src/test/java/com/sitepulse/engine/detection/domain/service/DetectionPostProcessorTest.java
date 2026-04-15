@@ -1,6 +1,7 @@
 package com.sitepulse.engine.detection.domain.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sitepulse.engine.common.domain.model.ImageFormat;
 import com.sitepulse.engine.config.SitePulseProperties;
 import com.sitepulse.engine.detection.domain.model.CameraRoiSettings;
 import com.sitepulse.engine.detection.domain.model.DetectionInference;
@@ -60,7 +61,7 @@ class DetectionPostProcessorTest {
         }
         try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            ImageIO.write(image, "png", out);
+            ImageIO.write(image, ImageFormat.PNG.getCanonicalExtension(), out);
             return out.toByteArray();
         } catch (IOException ex) {
             throw new IllegalStateException("Unable to build test image", ex);
@@ -103,7 +104,8 @@ class DetectionPostProcessorTest {
                 "test-key",
                 "gpt-4.1",
                 52_428_800L,
-                "http://python-yolo:8000"
+                "http://python-yolo:8000",
+                new SitePulseProperties.ImageWebSnapshotsProperties(false, 1920, 75, ImageFormat.WEBP, java.time.LocalTime.of(17, 0))
         );
     }
 }

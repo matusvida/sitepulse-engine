@@ -2,6 +2,7 @@ package com.sitepulse.engine.detection.infrastructure.external.openai;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sitepulse.engine.common.domain.model.ImageFormat;
 import com.sitepulse.engine.common.exception.ExternalServiceException;
 import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiPrompts.Detection;
 import com.sitepulse.engine.config.SitePulseProperties;
@@ -39,6 +40,7 @@ import org.springframework.stereotype.Component;
 public class OpenAiDetectionGateway {
 
     private static final String PROMPT_VERSION = "v3-roi-guided-occlusion";
+    private static final ImageFormat OPENAI_IMAGE_FORMAT = ImageFormat.JPEG;
     private final OpenAiFeignClient openAiFeignClient;
     private final SitePulseProperties properties;
     private final ObjectMapper objectMapper;
@@ -124,7 +126,7 @@ public class OpenAiDetectionGateway {
         contentParts.add(Map.of("type", "text", "text", userPrompt));
         contentParts.add(Map.of(
                 "type", "image_url",
-                "image_url", Map.of("url", "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(imageBytes), "detail", "high")
+                "image_url", Map.of("url", OPENAI_IMAGE_FORMAT.dataUriPrefix() + Base64.getEncoder().encodeToString(imageBytes), "detail", "high")
         ));
         return List.of(
                 Map.of("role", "system", "content", systemPrompt),

@@ -1,7 +1,9 @@
 package com.sitepulse.engine.detection.infrastructure.persistence;
 
 import com.sitepulse.engine.detection.domain.model.ImageStatus;
+import java.sql.Date;
 import java.time.OffsetDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -92,6 +94,87 @@ public interface ImageRepository extends JpaRepository<ImageEntity, Integer> {
     default Optional<ImageEntity> findClosestSnapshot(Integer projectId, OffsetDateTime dayStart, OffsetDateTime dayEnd, OffsetDateTime midday) {
         return findClosestSnapshotVisible(projectId, dayStart, dayEnd, midday);
     }
+
+    @Query(value = """
+            SELECT * FROM images
+            WHERE camera_id = :cameraId
+              AND status IN ('NEW', 'DONE')
+              AND captured_at >= :dayStart
+              AND captured_at < :dayEnd
+            ORDER BY ABS(EXTRACT(EPOCH FROM (captured_at - :midday))) ASC,
+                     captured_at ASC,
+                     id ASC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<ImageEntity> findRepresentativeSnapshotByCameraId(
+            @Param("cameraId") Integer cameraId,
+            @Param("dayStart") OffsetDateTime dayStart,
+            @Param("dayEnd") OffsetDateTime dayEnd,
+            @Param("midday") OffsetDateTime midday
+    );
+
+    @Query(value = """
+            SELECT * FROM images
+            WHERE camera_id = :cameraId
+              AND status IN ('NEW', 'DONE')
+              AND captured_at >= :dayStart
+              AND captured_at < :dayEnd
+            ORDER BY ABS(EXTRACT(EPOCH FROM (captured_at - :midday))) ASC,
+                     captured_at ASC,
+                     id ASC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<ImageEntity> findRepresentativeSnapshotCandidatesByCameraId(
+            @Param("cameraId") Integer cameraId,
+            @Param("dayStart") OffsetDateTime dayStart,
+            @Param("dayEnd") OffsetDateTime dayEnd,
+            @Param("midday") OffsetDateTime midday,
+            @Param("limit") int limit
+    );
+
+    @Query(value = """
+            SELECT * FROM images
+            WHERE camera_id = :cameraId
+              AND status IN ('NEW', 'DONE')
+              AND captured_at >= :dayStart
+              AND captured_at < :dayEnd
+            ORDER BY captured_at DESC, id DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<ImageEntity> findLatestSnapshotByCameraId(
+            @Param("cameraId") Integer cameraId,
+            @Param("dayStart") OffsetDateTime dayStart,
+            @Param("dayEnd") OffsetDateTime dayEnd
+    );
+
+    @Query(value = """
+            SELECT * FROM images
+            WHERE camera_id = :cameraId
+              AND status IN ('NEW', 'DONE')
+              AND captured_at >= :dayStart
+              AND captured_at < :dayEnd
+            ORDER BY captured_at DESC, id DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<ImageEntity> findLatestSnapshotCandidatesByCameraId(
+            @Param("cameraId") Integer cameraId,
+            @Param("dayStart") OffsetDateTime dayStart,
+            @Param("dayEnd") OffsetDateTime dayEnd,
+            @Param("limit") int limit
+    );
+
+    @Query(value = """
+            SELECT DISTINCT CAST((captured_at AT TIME ZONE :timezone) AS date)
+            FROM images
+            WHERE camera_id = :cameraId
+              AND status IN ('NEW', 'DONE')
+              AND captured_at IS NOT NULL
+            ORDER BY 1 ASC
+            """, nativeQuery = true)
+    List<Date> findAvailableSnapshotDatesByCameraId(
+            @Param("cameraId") Integer cameraId,
+            @Param("timezone") String timezone
+    );
 
     @Query(value = """
             SELECT DISTINCT ON (DATE(i.captured_at AT TIME ZONE 'UTC')) i.*

@@ -6,6 +6,7 @@ import com.sitepulse.engine.common.domain.port.ObjectStorage;
 import com.sitepulse.engine.project.domain.model.Camera;
 import com.sitepulse.engine.project.domain.model.Project;
 import com.sitepulse.engine.project.domain.port.CameraCatalogRepository;
+import com.sitepulse.engine.snapshot.application.usecase.RefreshCameraDailySnapshotsUseCase;
 import com.sitepulse.engine.sync.domain.model.ImageImport;
 import com.sitepulse.engine.sync.domain.model.SourceImageFile;
 import com.sitepulse.engine.sync.domain.model.SyncJob;
@@ -90,6 +91,11 @@ class RunProjectSyncUseCaseTest {
             public void publish(DomainEvent event) {
             }
         };
+        private final RefreshCameraDailySnapshotsUseCase refreshCameraDailySnapshotsUseCase = new RefreshCameraDailySnapshotsUseCase(null, null, null) {
+            @Override
+            public void refresh(Project project, Camera camera) {
+            }
+        };
         private final RunProjectSyncUseCase useCase;
 
         private Fixtures(String timezone, boolean saveResult) {
@@ -101,7 +107,8 @@ class RunProjectSyncUseCaseTest {
                     syncJobRepository,
                     imageCatalogRepository,
                     cameraCatalogRepository,
-                    domainEventPublisher
+                    domainEventPublisher,
+                    refreshCameraDailySnapshotsUseCase
             );
         }
     }

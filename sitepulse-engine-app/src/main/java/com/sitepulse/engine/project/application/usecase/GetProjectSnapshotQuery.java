@@ -17,7 +17,7 @@ public class GetProjectSnapshotQuery {
     public ProjectSnapshotResult get(Integer projectId, LocalDate date) {
         ProjectSnapshotSelectionResult snapshot = resolveProjectSnapshotQuery.resolve(projectId, date);
         return new ProjectSnapshotResult(
-                objectStorage.download(snapshot.image().getBucket(), snapshot.image().getKey()),
+                objectStorage.download(snapshot.bucket(), snapshot.key()),
                 snapshot.mediaType()
         );
     }

@@ -84,6 +84,12 @@ sitepulse:
   openai-model: ${OPENAI_MODEL:gpt-4.1}
   max-image-bytes: ${MAX_IMAGE_BYTES:52428800}
   python-yolo-base-url: ${PYTHON_YOLO_BASE_URL:http://python-yolo:8000}
+  image-web-snapshots:
+    enabled: ${IMAGE_WEB_SNAPSHOTS_ENABLED:true}
+    target-width: ${IMAGE_WEB_SNAPSHOTS_TARGET_WIDTH:1920}
+    target-quality: ${IMAGE_WEB_SNAPSHOTS_TARGET_QUALITY:75}
+    target-format: ${IMAGE_WEB_SNAPSHOTS_TARGET_FORMAT:WEBP}
+    freeze-time: ${IMAGE_WEB_SNAPSHOTS_FREEZE_TIME:17:00:00}
 
 logging:
   level:

@@ -1,5 +1,6 @@
 package com.sitepulse.engine.sync.domain.service;
 
+import com.sitepulse.engine.common.domain.model.ImageFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -43,6 +44,8 @@ public class SyncFileParser {
     }
 
     public String contentType(String fileName) {
-        return fileName.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
+        return ImageFormat.fromFileName(fileName)
+                .orElse(ImageFormat.JPEG)
+                .getMediaType();
     }
 }

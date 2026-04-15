@@ -3,6 +3,7 @@ package com.sitepulse.engine.common.infrastructure.external.openai;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sitepulse.engine.common.domain.model.ImageFormat;
 import com.sitepulse.engine.common.exception.ConfigurationException;
 import com.sitepulse.engine.common.exception.ExternalServiceException;
 import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiPrompts.Detection;
@@ -29,6 +30,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class OpenAiService {
 
+    private static final ImageFormat OPENAI_IMAGE_FORMAT = ImageFormat.JPEG;
     private final OpenAiFeignClient openAiFeignClient;
     private final SitePulseProperties properties;
     private final ObjectMapper objectMapper;
@@ -68,7 +70,7 @@ public class OpenAiService {
             contentParts.add(Map.of("type", "text", "text", "Photo date: " + image.getDate()));
             contentParts.add(Map.of(
                     "type", "image_url",
-                    "image_url", Map.of("url", "data:image/jpeg;base64," + image.getBase64Content(), "detail", "low")
+                    "image_url", Map.of("url", OPENAI_IMAGE_FORMAT.dataUriPrefix() + image.getBase64Content(), "detail", "low")
             ));
         }
         log.info("OpenAI request type=progress_report model={} images={} metrics_chars={} milestones_chars={}", properties.openaiModel(), imageData == null ? 0 : imageData.size(), metricsContext == null ? 0 : metricsContext.length(), milestonesContext == null ? 0 : milestonesContext.length());
@@ -99,7 +101,7 @@ public class OpenAiService {
         for (byte[] image : images.stream().limit(5).toList()) {
             contentParts.add(Map.of(
                     "type", "image_url",
-                    "image_url", Map.of("url", "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(image), "detail", "low")
+                    "image_url", Map.of("url", OPENAI_IMAGE_FORMAT.dataUriPrefix() + Base64.getEncoder().encodeToString(image), "detail", "low")
             ));
         }
         log.info("OpenAI request type=milestone_eval model={} title_chars={} images={}", properties.openaiModel(), title == null ? 0 : title.length(), images == null ? 0 : images.size());
@@ -154,7 +156,7 @@ public class OpenAiService {
         contentParts.add(Map.of("type", "text", "text", prompt.toString()));
         contentParts.add(Map.of(
                 "type", "image_url",
-                "image_url", Map.of("url", "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(imageBytes), "detail", "low")
+                "image_url", Map.of("url", OPENAI_IMAGE_FORMAT.dataUriPrefix() + Base64.getEncoder().encodeToString(imageBytes), "detail", "low")
         ));
         OpenAiChatResponse response = openAiFeignClient.chat(
                 authorizationHeader(),

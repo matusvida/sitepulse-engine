@@ -30,6 +30,7 @@ ENV/
 .coverage.*
 htmlcov/
 .ipynb_checkpoints/
+plans/*
 
 # Java / Maven / Spring Boot
 target/

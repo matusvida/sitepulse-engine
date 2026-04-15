@@ -6,6 +6,7 @@ import com.sitepulse.engine.common.exception.SitePulseException;
 import com.sitepulse.engine.project.domain.model.Camera;
 import com.sitepulse.engine.project.domain.model.Project;
 import com.sitepulse.engine.project.domain.port.CameraCatalogRepository;
+import com.sitepulse.engine.snapshot.application.usecase.RefreshCameraDailySnapshotsUseCase;
 import com.sitepulse.engine.sync.domain.model.ImageImport;
 import com.sitepulse.engine.sync.domain.model.SourceImageFile;
 import com.sitepulse.engine.sync.domain.model.SyncJob;
@@ -35,6 +36,7 @@ public class RunProjectSyncUseCase {
     private final ImageCatalogRepository imageCatalogRepository;
     private final CameraCatalogRepository cameraCatalogRepository;
     private final DomainEventPublisher domainEventPublisher;
+    private final RefreshCameraDailySnapshotsUseCase refreshCameraDailySnapshotsUseCase;
 
     private final SyncFileParser syncFileParser = new SyncFileParser();
 
@@ -78,6 +80,7 @@ public class RunProjectSyncUseCase {
                         }
                     }
                 }
+                refreshCameraDailySnapshotsUseCase.refresh(project, camera);
             }
         } catch (SitePulseException ex) {
             log.error("Sync failed for projectId={} reason={}", project.getId(), ex.getMessage(), ex);

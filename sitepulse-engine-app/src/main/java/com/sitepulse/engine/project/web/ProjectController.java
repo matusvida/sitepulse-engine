@@ -1,5 +1,6 @@
 package com.sitepulse.engine.project.web;
 
+import com.sitepulse.engine.http.common.dto.ActionResponse;
 import com.sitepulse.engine.http.project.api.ProjectApi;
 import com.sitepulse.engine.http.project.dto.CameraCreateRequest;
 import com.sitepulse.engine.http.project.dto.CameraUpdateRequest;
@@ -20,6 +21,7 @@ import com.sitepulse.engine.project.application.usecase.CreateCameraUseCase;
 import com.sitepulse.engine.project.application.usecase.CreateProjectUseCase;
 import com.sitepulse.engine.project.application.usecase.GetProjectSnapshotQuery;
 import com.sitepulse.engine.project.application.usecase.GetProjectQuery;
+import com.sitepulse.engine.snapshot.application.usecase.BackfillProjectDailySnapshotsUseCase;
 import com.sitepulse.engine.project.application.usecase.ListProjectSnapshotsQuery;
 import com.sitepulse.engine.project.application.usecase.ListSnapshotDatesQuery;
 import com.sitepulse.engine.project.application.usecase.ListProjectCamerasQuery;
@@ -48,6 +50,7 @@ public class ProjectController implements ProjectApi {
     private final ListSnapshotDatesQuery listSnapshotDatesQuery;
     private final ListProjectSnapshotsQuery listProjectSnapshotsQuery;
     private final GetProjectSnapshotQuery getProjectSnapshotQuery;
+    private final BackfillProjectDailySnapshotsUseCase backfillProjectDailySnapshotsUseCase;
 
     @Override
     public List<ProjectView> listProjects() {
@@ -100,6 +103,18 @@ public class ProjectController implements ProjectApi {
         return listProjectSnapshotsQuery.list(projectId).stream()
                 .map(this::toProjectSnapshotView)
                 .toList();
+    }
+
+    @Override
+    public ActionResponse backfillSnapshots(Integer projectId, Integer cameraId, boolean force) {
+        backfillProjectDailySnapshotsUseCase.backfill(projectId, cameraId, force);
+        return new ActionResponse(
+                "accepted",
+                cameraId == null
+                        ? "Snapshot backfill completed for all project cameras"
+                        : "Snapshot backfill completed for camera " + cameraId,
+                projectId
+        );
     }
 
     @Override

@@ -1,8 +1,10 @@
 package com.sitepulse.engine.project.application.usecase;
 
+import com.sitepulse.engine.common.domain.model.ImageFormat;
 import com.sitepulse.engine.common.exception.ResourceNotFoundException;
-import com.sitepulse.engine.detection.domain.model.StoredImage;
-import com.sitepulse.engine.detection.domain.port.ProcessedImageReadModel;
+import com.sitepulse.engine.project.application.ProjectLookupService;
+import com.sitepulse.engine.project.application.ProjectSnapshotService;
+import com.sitepulse.engine.project.application.result.ProjectSnapshotSelectionResult;
 import com.sitepulse.engine.project.domain.model.Project;
 import com.sitepulse.engine.project.domain.port.ProjectCatalogRepository;
 import java.time.LocalDate;
@@ -19,94 +21,28 @@ class ResolveProjectSnapshotQueryTest {
 
     @Test
     void resolveReturnsSelectedImageAndMediaType() {
-        ProjectCatalogRepository projectCatalogRepository = projectCatalogRepository(true);
-        ProcessedImageReadModel processedImageReadModel = new ProcessedImageReadModel() {
-            @Override
-            public List<OffsetDateTime> findSnapshotCapturedAtValues(Integer projectId) {
-                return List.of();
-            }
-
-            @Override
-            public List<StoredImage> findRepresentativeSnapshots(Integer projectId) {
-                return List.of();
-            }
-
-            @Override
-            public Optional<StoredImage> findClosestSnapshot(Integer projectId, OffsetDateTime dayStart, OffsetDateTime dayEnd, OffsetDateTime midday) {
-                return Optional.of(new StoredImage(
-                        10,
-                        "bucket",
-                        "snapshot.png",
-                        OffsetDateTime.of(2024, 6, 15, 10, 30, 0, 0, ZoneOffset.UTC)
-                ));
-            }
-
-            @Override
-            public List<StoredImage> findDoneInRange(Integer projectId, OffsetDateTime from, OffsetDateTime to) {
-                return List.of();
-            }
-
-            @Override
-            public List<StoredImage> findProcessedByProject(Integer projectId) {
-                return List.of();
-            }
-
-            @Override
-            public List<com.sitepulse.engine.detection.domain.model.DetectedObject> findDetections(Integer imageId) {
-                return List.of();
-            }
-        };
-
         ResolveProjectSnapshotQuery query = new ResolveProjectSnapshotQuery(
-                new com.sitepulse.engine.project.application.ProjectLookupService(projectCatalogRepository),
-                processedImageReadModel
+                new ProjectLookupService(projectCatalogRepository(true)),
+                new ProjectSnapshotServiceStub(new ProjectSnapshotSelectionResult(
+                        LocalDate.of(2024, 6, 15),
+                        "bucket",
+                        "snapshot." + ImageFormat.PNG.getCanonicalExtension(),
+                        ImageFormat.PNG.getMediaType()
+                ))
         );
 
-        var result = query.resolve(1, LocalDate.of(2024, 6, 15));
+        ProjectSnapshotSelectionResult result = query.resolve(1, LocalDate.of(2024, 6, 15));
 
         assertEquals(LocalDate.of(2024, 6, 15), result.date());
-        assertEquals("image/png", result.mediaType());
-        assertEquals("snapshot.png", result.image().getKey());
+        assertEquals(ImageFormat.PNG.getMediaType(), result.mediaType());
+        assertEquals("snapshot." + ImageFormat.PNG.getCanonicalExtension(), result.key());
     }
 
     @Test
     void resolveThrowsWhenNoImageExistsForDate() {
-        ProjectCatalogRepository projectCatalogRepository = projectCatalogRepository(true);
-        ProcessedImageReadModel processedImageReadModel = new ProcessedImageReadModel() {
-            @Override
-            public List<OffsetDateTime> findSnapshotCapturedAtValues(Integer projectId) {
-                return List.of();
-            }
-
-            @Override
-            public List<StoredImage> findRepresentativeSnapshots(Integer projectId) {
-                return List.of();
-            }
-
-            @Override
-            public Optional<StoredImage> findClosestSnapshot(Integer projectId, OffsetDateTime dayStart, OffsetDateTime dayEnd, OffsetDateTime midday) {
-                return Optional.empty();
-            }
-
-            @Override
-            public List<StoredImage> findDoneInRange(Integer projectId, OffsetDateTime from, OffsetDateTime to) {
-                return List.of();
-            }
-
-            @Override
-            public List<StoredImage> findProcessedByProject(Integer projectId) {
-                return List.of();
-            }
-
-            @Override
-            public List<com.sitepulse.engine.detection.domain.model.DetectedObject> findDetections(Integer imageId) {
-                return List.of();
-            }
-        };
-
         ResolveProjectSnapshotQuery query = new ResolveProjectSnapshotQuery(
-                new com.sitepulse.engine.project.application.ProjectLookupService(projectCatalogRepository),
-                processedImageReadModel
+                new ProjectLookupService(projectCatalogRepository(true)),
+                new MissingProjectSnapshotServiceStub()
         );
 
         assertThrows(ResourceNotFoundException.class, () -> query.resolve(1, LocalDate.of(2024, 6, 15)));
@@ -138,5 +74,32 @@ class ResolveProjectSnapshotQueryTest {
                 throw new UnsupportedOperationException();
             }
         };
+    }
+
+    private static final class ProjectSnapshotServiceStub extends ProjectSnapshotService {
+
+        private final ProjectSnapshotSelectionResult result;
+
+        private ProjectSnapshotServiceStub(ProjectSnapshotSelectionResult result) {
+            super(null, null, null, null, null, null, null, null, null);
+            this.result = result;
+        }
+
+        @Override
+        public ProjectSnapshotSelectionResult resolve(Integer projectId, LocalDate date) {
+            return result;
+        }
+    }
+
+    private static final class MissingProjectSnapshotServiceStub extends ProjectSnapshotService {
+
+        private MissingProjectSnapshotServiceStub() {
+            super(null, null, null, null, null, null, null, null, null);
+        }
+
+        @Override
+        public ProjectSnapshotSelectionResult resolve(Integer projectId, LocalDate date) {
+            throw new ResourceNotFoundException("No image found");
+        }
     }
 }

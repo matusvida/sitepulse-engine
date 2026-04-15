@@ -2,6 +2,7 @@ package com.sitepulse.engine.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sitepulse.engine.common.domain.model.ImageFormat;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.Valid;
@@ -9,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -44,7 +46,8 @@ public record SitePulseProperties(
         String openaiApiKey,
         @NotBlank String openaiModel,
         @NotNull Long maxImageBytes,
-        @NotBlank String pythonYoloBaseUrl
+        @NotBlank String pythonYoloBaseUrl,
+        @Valid ImageWebSnapshotsProperties imageWebSnapshots
 ) {
 
     public String[] corsOriginArray() {
@@ -65,6 +68,15 @@ public record SitePulseProperties(
             @NotBlank String accessKey,
             @NotBlank String secretKey,
             String region
+    ) {
+    }
+
+    public record ImageWebSnapshotsProperties(
+            boolean enabled,
+            @NotNull Integer targetWidth,
+            @NotNull Integer targetQuality,
+            @NotNull ImageFormat targetFormat,
+            @NotNull LocalTime freezeTime
     ) {
     }
 

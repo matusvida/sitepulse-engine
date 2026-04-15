@@ -1,5 +1,6 @@
 package com.sitepulse.engine.visualization.application.usecase;
 
+import com.sitepulse.engine.common.domain.model.ImageFormat;
 import com.sitepulse.engine.common.domain.port.ObjectStorage;
 import com.sitepulse.engine.common.exception.SitePulseException;
 import com.sitepulse.engine.detection.domain.model.DetectedObject;
@@ -29,6 +30,7 @@ import javax.imageio.ImageIO;
 @RequiredArgsConstructor
 public class GenerateDetectionVisualizationUseCase {
 
+    private static final ImageFormat OUTPUT_FORMAT = ImageFormat.JPEG;
     private static final Map<String, Color> COLORS = Map.of(
             "person", new Color(0, 120, 255),
             "car", new Color(255, 80, 0),
@@ -56,7 +58,7 @@ public class GenerateDetectionVisualizationUseCase {
             try {
                 byte[] original = objectStorage.download(image.getBucket(), image.getKey());
                 byte[] annotated = drawDetections(original, processedImageReadModel.findDetections(image.getId()));
-                objectStorage.upload(image.getBucket(), "detection/" + image.getKey(), annotated, "image/jpeg");
+                objectStorage.upload(image.getBucket(), "detection/" + image.getKey(), annotated, OUTPUT_FORMAT.getMediaType());
                 processed++;
             } catch (SitePulseException | IOException ex) {
                 errors.add(image.getKey() + ": " + ex.getMessage());
@@ -85,7 +87,7 @@ public class GenerateDetectionVisualizationUseCase {
         }
         graphics.dispose();
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ImageIO.write(image, "jpg", outputStream);
+        ImageIO.write(image, OUTPUT_FORMAT.getCanonicalExtension(), outputStream);
         return outputStream.toByteArray();
     }
 }

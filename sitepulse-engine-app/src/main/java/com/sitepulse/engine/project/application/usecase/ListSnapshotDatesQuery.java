@@ -1,9 +1,8 @@
 package com.sitepulse.engine.project.application.usecase;
 
-import com.sitepulse.engine.detection.domain.port.ProcessedImageReadModel;
+import com.sitepulse.engine.project.application.ProjectSnapshotService;
 import com.sitepulse.engine.project.application.ProjectLookupService;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -13,13 +12,10 @@ import org.springframework.stereotype.Service;
 public class ListSnapshotDatesQuery {
 
     private final ProjectLookupService projectLookupService;
-    private final ProcessedImageReadModel processedImageReadModel;
+    private final ProjectSnapshotService projectSnapshotService;
 
     public List<LocalDate> list(Integer projectId) {
         projectLookupService.requireProject(projectId);
-        return processedImageReadModel.findSnapshotCapturedAtValues(projectId).stream()
-                .map(instant -> instant.withOffsetSameInstant(ZoneOffset.UTC).toLocalDate())
-                .distinct()
-                .toList();
+        return projectSnapshotService.listAvailableDates(projectId);
     }
 }
