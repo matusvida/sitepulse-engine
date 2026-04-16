@@ -4,6 +4,7 @@ import com.sitepulse.engine.common.domain.port.ObjectStorage;
 import com.sitepulse.engine.common.exception.ExternalServiceException;
 import com.sitepulse.engine.common.exception.ProcessingException;
 import com.sitepulse.engine.common.exception.ResourceNotFoundException;
+import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.detection.infrastructure.persistence.ImageEntity;
 import com.sitepulse.engine.project.domain.model.Camera;
 import com.sitepulse.engine.project.domain.model.Project;
@@ -39,6 +40,29 @@ public class GenerateCameraDailySnapshotUseCase {
 
     @Transactional
     public CameraSnapshotAsset generate(Project project, Camera camera, LocalDate snapshotDate, boolean force) {
+        return doGenerate(project, camera, snapshotDate, force, null, null);
+    }
+
+    @Transactional
+    public CameraSnapshotAsset generate(
+            Project project,
+            Camera camera,
+            LocalDate snapshotDate,
+            boolean force,
+            DetectionImage importedImage,
+            byte[] importedSourceBytes
+    ) {
+        return doGenerate(project, camera, snapshotDate, force, importedImage, importedSourceBytes);
+    }
+
+    private CameraSnapshotAsset doGenerate(
+            Project project,
+            Camera camera,
+            LocalDate snapshotDate,
+            boolean force,
+            DetectionImage importedImage,
+            byte[] importedSourceBytes
+    ) {
         CameraSnapshotSourceDecision sourceDecision = resolveSourceUseCase.resolve(project, camera, snapshotDate);
         var existing = snapshotRepository.findByCameraIdAndSnapshotDate(camera.getId(), snapshotDate).orElse(null);
         if (existing != null && existing.isFrozen() && !force) {
@@ -48,13 +72,20 @@ public class GenerateCameraDailySnapshotUseCase {
         CameraSnapshotProfile profile = profileService.getOrCreate(camera.getId());
         String targetKey = snapshotKeyFactory.create(project, camera, snapshotDate, profile.targetFormat());
         OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
-        if (!force && existing != null && !shouldRegenerate(existing, sourceDecision, targetKey)) {
-            if (existing.isFrozen() == sourceDecision.frozen()) {
+        if (!force && existing != null && !shouldRegenerate(existing, sourceDecision, targetKey)
+                && existing.isFrozen() == sourceDecision.frozen()) {
                 return toResult(existing);
             }
-        }
 
-        TransformedSourcePayload sourcePayload = resolveTransformedSourcePayload(sourceDecision, camera, snapshotDate, profile);
+
+        TransformedSourcePayload sourcePayload = resolveTransformedSourcePayload(
+                sourceDecision,
+                camera,
+                snapshotDate,
+                profile,
+                importedImage,
+                importedSourceBytes
+        );
         objectStorage.upload(sourcePayload.image().getBucket(), targetKey, sourcePayload.transformedImage().bytes(), sourcePayload.transformedImage().mediaType());
 
         CameraDailySnapshotEntity entity = existing == null ? new CameraDailySnapshotEntity() : existing;
@@ -81,13 +112,17 @@ public class GenerateCameraDailySnapshotUseCase {
             CameraSnapshotSourceDecision decision,
             Camera camera,
             LocalDate snapshotDate,
-            CameraSnapshotProfile profile
+            CameraSnapshotProfile profile,
+            DetectionImage importedImage,
+            byte[] importedSourceBytes
     ) {
         ExternalServiceException lastExternalFailure = null;
         ProcessingException lastProcessingFailure = null;
         for (ImageEntity candidate : decision.sourceImages()) {
             try {
-                byte[] sourceBytes = objectStorage.download(candidate.getBucket(), candidate.getKey());
+                byte[] sourceBytes = matchesImportedCandidate(candidate, importedImage) && importedSourceBytes != null
+                        ? importedSourceBytes
+                        : objectStorage.download(candidate.getBucket(), candidate.getKey());
                 WebImageTransformer.TransformedImage transformedImage = webImageTransformer.transform(sourceBytes, profile);
                 return new TransformedSourcePayload(candidate, transformedImage);
             } catch (ExternalServiceException ex) {
@@ -107,6 +142,10 @@ public class GenerateCameraDailySnapshotUseCase {
             throw new ProcessingException("No transformable source image found for " + snapshotDate, lastProcessingFailure);
         }
         throw new ResourceNotFoundException("No source image found for " + snapshotDate);
+    }
+
+    private boolean matchesImportedCandidate(ImageEntity candidate, DetectionImage importedImage) {
+        return importedImage != null && importedImage.getId() != null && importedImage.getId().equals(candidate.getId());
     }
 
     private record TransformedSourcePayload(ImageEntity image, WebImageTransformer.TransformedImage transformedImage) {

@@ -1,6 +1,7 @@
 package com.sitepulse.engine.sync.infrastructure.external;
 import com.sitepulse.engine.sync.domain.model.SourceImageFile;
 import com.sitepulse.engine.sync.domain.port.SyncSource;
+import java.io.InputStream;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,11 @@ public class DropboxSyncSource implements SyncSource {
         return dropboxClientService.listFiles(sourcePath, subfolderName).stream()
                 .map(file -> new SourceImageFile(file.name(), file.path(), file.size()))
                 .toList();
+    }
+
+    @Override
+    public InputStream downloadFileStream(String sourcePath, String relativePath) {
+        return dropboxClientService.downloadFileStream(sourcePath, relativePath);
     }
 
     @Override

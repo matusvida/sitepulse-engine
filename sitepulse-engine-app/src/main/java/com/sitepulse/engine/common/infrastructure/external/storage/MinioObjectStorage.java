@@ -107,14 +107,14 @@ public class MinioObjectStorage implements ObjectStorage {
     }
 
     @Override
-    public void upload(String bucket, String key, byte[] data, String contentType) {
-        log.debug("Uploading object to storage bucket={} key={} bytes={} contentType={}", bucket, key, data.length, contentType);
+    public void upload(String bucket, String key, InputStream data, long size, String contentType) {
+        log.debug("Uploading object to storage bucket={} key={} bytes={} contentType={}", bucket, key, size, contentType);
         try {
             minioClient.putObject(
                     PutObjectArgs.builder()
                             .bucket(bucket)
                             .object(key)
-                            .stream(new ByteArrayInputStream(data), data.length, -1)
+                            .stream(data, size, -1)
                             .contentType(contentType)
                             .build()
             );

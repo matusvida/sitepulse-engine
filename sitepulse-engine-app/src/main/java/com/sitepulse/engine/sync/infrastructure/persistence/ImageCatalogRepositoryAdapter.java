@@ -7,6 +7,7 @@ import com.sitepulse.engine.sync.domain.model.ImageImport;
 import com.sitepulse.engine.sync.domain.port.ImageCatalogRepository;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -29,11 +30,11 @@ public class ImageCatalogRepositoryAdapter implements ImageCatalogRepository {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public boolean saveImportedImage(ImageImport imageImport) {
+    public SaveImportedImageResult saveImportedImage(ImageImport imageImport) {
         try {
             Integer cameraId = resolveCameraId(imageImport.projectId(), imageImport.key());
             OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-            detectionImageRepository.save(DetectionImage.createNew(
+            DetectionImage image = detectionImageRepository.save(DetectionImage.createNew(
                     imageImport.bucket(),
                     imageImport.key(),
                     imageImport.projectId(),
@@ -41,11 +42,11 @@ public class ImageCatalogRepositoryAdapter implements ImageCatalogRepository {
                     imageImport.capturedAt(),
                     now
             ));
-            return true;
+            return new SaveImportedImageResult(true, Optional.of(image));
         } catch (DataIntegrityViolationException ex) {
             if (detectionImageRepository.existsByBucketAndKey(imageImport.bucket(), imageImport.key())) {
                 log.info("Ignoring duplicate image row for bucket={} key={} after concurrent sync", imageImport.bucket(), imageImport.key());
-                return false;
+                return new SaveImportedImageResult(false, Optional.empty());
             }
             throw ex;
         }

@@ -1,5 +1,6 @@
 package com.sitepulse.engine.snapshot.application.usecase;
 
+import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.project.domain.model.Camera;
 import com.sitepulse.engine.project.domain.model.Project;
 import com.sitepulse.engine.snapshot.application.service.SnapshotTimezoneResolver;
@@ -24,9 +25,18 @@ public class RefreshCameraDailySnapshotsUseCase {
         refresh(project, camera, now.toLocalDate());
     }
 
+    public void refresh(Project project, Camera camera, DetectionImage importedImage, byte[] importedSourceBytes) {
+        ZonedDateTime now = ZonedDateTime.now(clock).withZoneSameInstant(timezoneResolver.resolve(project));
+        refresh(project, camera, now.toLocalDate(), importedImage, importedSourceBytes);
+    }
+
     public void refresh(Project project, Camera camera, LocalDate snapshotDate) {
+        refresh(project, camera, snapshotDate, null, null);
+    }
+
+    public void refresh(Project project, Camera camera, LocalDate snapshotDate, DetectionImage importedImage, byte[] importedSourceBytes) {
         try {
-            generateUseCase.generate(project, camera, snapshotDate, false);
+            generateUseCase.generate(project, camera, snapshotDate, false, importedImage, importedSourceBytes);
         } catch (RuntimeException ex) {
             log.warn("Failed to refresh camera daily snapshot projectId={} cameraId={} date={} reason={}",
                     project.getId(), camera.getId(), snapshotDate, ex.getMessage());

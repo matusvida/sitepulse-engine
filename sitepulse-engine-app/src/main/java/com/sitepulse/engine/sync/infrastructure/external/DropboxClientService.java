@@ -7,6 +7,7 @@ import com.sitepulse.engine.common.exception.ConfigurationException;
 import com.sitepulse.engine.common.exception.ExternalServiceException;
 import com.sitepulse.engine.config.SitePulseProperties;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -76,6 +77,15 @@ public class DropboxClientService {
     }
 
     public byte[] downloadFile(String dropboxUrl, String relativePath) {
+        try (InputStream inputStream = downloadFileStream(dropboxUrl, relativePath)) {
+            return inputStream.readAllBytes();
+        } catch (IOException ex) {
+            log.error("Dropbox file download IO failure url={} path={} reason={}", dropboxUrl, relativePath, ex.getMessage(), ex);
+            throw new ExternalServiceException("Failed to download Dropbox file", ex);
+        }
+    }
+
+    public InputStream downloadFileStream(String dropboxUrl, String relativePath) {
         try {
             log.info("Downloading Dropbox file url={} path={}", dropboxUrl, relativePath);
             HttpRequest request = HttpRequest.newBuilder()
@@ -85,12 +95,13 @@ public class DropboxClientService {
                     .header("Dropbox-API-Arg", objectMapper.writeValueAsString(Map.of("url", parseSharedLinkUrl(dropboxUrl).baseUrl(), "path", relativePath)))
                     .POST(HttpRequest.BodyPublishers.noBody())
                     .build();
-            HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
             if (response.statusCode() >= 400) {
+                response.body().close();
                 log.warn("Dropbox file download failed url={} path={} status={}", dropboxUrl, relativePath, response.statusCode());
                 throw new ExternalServiceException("Failed to download Dropbox file: HTTP " + response.statusCode());
             }
-            log.info("Downloaded Dropbox file url={} path={} bytes={}", dropboxUrl, relativePath, response.body().length);
+            log.info("Opened Dropbox file download stream url={} path={} status={}", dropboxUrl, relativePath, response.statusCode());
             return response.body();
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();

@@ -1,5 +1,7 @@
 package com.sitepulse.engine.common.domain.port;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.time.Duration;
 
 public interface ObjectStorage {
@@ -8,7 +10,11 @@ public interface ObjectStorage {
 
     boolean exists(String bucket, String key);
 
-    void upload(String bucket, String key, byte[] data, String contentType);
+    default void upload(String bucket, String key, byte[] data, String contentType) {
+        upload(bucket, key, new ByteArrayInputStream(data), data.length, contentType);
+    }
+
+    void upload(String bucket, String key, InputStream data, long size, String contentType);
 
     String defaultBucket();
 
