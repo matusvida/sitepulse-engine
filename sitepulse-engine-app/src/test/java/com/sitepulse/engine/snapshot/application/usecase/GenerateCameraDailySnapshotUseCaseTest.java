@@ -12,6 +12,7 @@ import com.sitepulse.engine.snapshot.application.service.SnapshotKeyFactory;
 import com.sitepulse.engine.snapshot.application.service.WebImageTransformer;
 import com.sitepulse.engine.snapshot.infrastructure.persistence.CameraDailySnapshotEntity;
 import com.sitepulse.engine.snapshot.infrastructure.persistence.CameraDailySnapshotRepository;
+import java.io.InputStream;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Proxy;
@@ -132,7 +133,7 @@ class GenerateCameraDailySnapshotUseCaseTest {
         }
 
         @Override
-        public void upload(String bucket, String key, byte[] data, String contentType) {
+        public void upload(String bucket, String key, InputStream data, long size, String contentType) {
             uploaded = true;
         }
 

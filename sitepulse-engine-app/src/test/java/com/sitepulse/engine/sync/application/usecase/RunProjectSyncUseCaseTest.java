@@ -3,9 +3,11 @@ package com.sitepulse.engine.sync.application.usecase;
 import com.sitepulse.engine.common.application.event.DomainEventPublisher;
 import com.sitepulse.engine.common.domain.event.DomainEvent;
 import com.sitepulse.engine.common.domain.port.ObjectStorage;
+import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.project.domain.model.Camera;
 import com.sitepulse.engine.project.domain.model.Project;
 import com.sitepulse.engine.project.domain.port.CameraCatalogRepository;
+import com.sitepulse.engine.snapshot.application.service.SnapshotTimezoneResolver;
 import com.sitepulse.engine.snapshot.application.usecase.RefreshCameraDailySnapshotsUseCase;
 import com.sitepulse.engine.sync.domain.model.ImageImport;
 import com.sitepulse.engine.sync.domain.model.SourceImageFile;
@@ -14,6 +16,8 @@ import com.sitepulse.engine.sync.domain.model.SyncJobStatus;
 import com.sitepulse.engine.sync.domain.port.ImageCatalogRepository;
 import com.sitepulse.engine.sync.domain.port.SyncJobRepository;
 import com.sitepulse.engine.sync.domain.port.SyncSource;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -93,7 +97,7 @@ class RunProjectSyncUseCaseTest {
         };
         private final RefreshCameraDailySnapshotsUseCase refreshCameraDailySnapshotsUseCase = new RefreshCameraDailySnapshotsUseCase(null, null, null) {
             @Override
-            public void refresh(Project project, Camera camera) {
+            public void refresh(Project project, Camera camera, DetectionImage importedImage, byte[] importedSourceBytes) {
             }
         };
         private final RunProjectSyncUseCase useCase;
@@ -108,7 +112,8 @@ class RunProjectSyncUseCaseTest {
                     imageCatalogRepository,
                     cameraCatalogRepository,
                     domainEventPublisher,
-                    refreshCameraDailySnapshotsUseCase
+                    refreshCameraDailySnapshotsUseCase,
+                    new SnapshotTimezoneResolver()
             );
         }
     }
@@ -125,6 +130,12 @@ class RunProjectSyncUseCaseTest {
         @Override
         public List<SourceImageFile> listFiles(String sourcePath, String subfolderName) {
             return List.of(new SourceImageFile("cam1_2026-04-10_15_40_04.jpg", "cam1_2026-04-10_15_40_04.jpg", 10));
+        }
+
+        @Override
+        public InputStream downloadFileStream(String sourcePath, String relativePath) {
+            downloadCalls.add(sourcePath + "|" + relativePath);
+            return new ByteArrayInputStream(new byte[] {1, 2, 3});
         }
 
         @Override
@@ -149,7 +160,7 @@ class RunProjectSyncUseCaseTest {
         }
 
         @Override
-        public void upload(String bucket, String key, byte[] data, String contentType) {
+        public void upload(String bucket, String key, InputStream data, long size, String contentType) {
             uploadCalls.add(bucket + "|" + key + "|" + contentType);
         }
 
@@ -197,9 +208,23 @@ class RunProjectSyncUseCaseTest {
         }
 
         @Override
-        public boolean saveImportedImage(ImageImport imageImport) {
+        public SaveImportedImageResult saveImportedImage(ImageImport imageImport) {
             imports.add(imageImport);
-            return saveResult;
+            if (!saveResult) {
+                return new SaveImportedImageResult(false, Optional.empty());
+            }
+            DetectionImage image = DetectionImage.restore(
+                    imports.size(),
+                    imageImport.bucket(),
+                    imageImport.key(),
+                    com.sitepulse.engine.detection.domain.model.ImageStatus.NEW,
+                    imageImport.projectId(),
+                    11,
+                    imageImport.capturedAt(),
+                    NOW,
+                    NOW
+            );
+            return new SaveImportedImageResult(true, Optional.of(image));
         }
 
         @Override

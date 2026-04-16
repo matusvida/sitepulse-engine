@@ -16,6 +16,7 @@ import com.sitepulse.engine.detection.domain.model.RawDetection;
 import com.sitepulse.engine.detection.domain.port.CameraLookup;
 import com.sitepulse.engine.detection.domain.port.DetectionImageRepository;
 import com.sitepulse.engine.detection.domain.service.DetectionPostProcessor;
+import java.io.InputStream;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -166,7 +167,7 @@ class RunOnDemandDetectionUseCaseTest {
         }
 
         @Override
-        public void upload(String bucket, String key, byte[] data, String contentType) {
+        public void upload(String bucket, String key, InputStream data, long size, String contentType) {
         }
 
         @Override
