@@ -2,6 +2,7 @@ package com.sitepulse.engine.config;
 
 import com.zaxxer.hikari.HikariDataSource;
 import javax.sql.DataSource;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -9,13 +10,12 @@ import org.springframework.context.annotation.Configuration;
 public class DataSourceConfig {
 
     @Bean
+    @ConfigurationProperties("spring.datasource.hikari")
     public DataSource dataSource(SitePulseProperties properties) {
         HikariDataSource dataSource = new HikariDataSource();
         dataSource.setJdbcUrl(toJdbcUrl(properties.postgresDsn()));
         dataSource.setUsername(extractUsername(properties.postgresDsn()));
         dataSource.setPassword(extractPassword(properties.postgresDsn()));
-        dataSource.setMaximumPoolSize(5);
-        dataSource.setMinimumIdle(2);
         return dataSource;
     }
 

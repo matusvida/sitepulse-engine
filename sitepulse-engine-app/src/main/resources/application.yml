@@ -4,8 +4,14 @@ spring:
   datasource:
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 5
+      pool-name: sitepulse-hikari
+      maximum-pool-size: 10
       minimum-idle: 2
+      connection-timeout: 30000
+      validation-timeout: 5000
+      idle-timeout: 600000
+      keepalive-time: 300000
+      max-lifetime: 1800000
   jpa:
     open-in-view: false
     hibernate:

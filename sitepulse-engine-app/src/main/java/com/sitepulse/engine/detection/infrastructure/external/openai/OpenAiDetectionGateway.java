@@ -39,7 +39,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class OpenAiDetectionGateway {
 
-    private static final String PROMPT_VERSION = "v3-roi-guided-occlusion";
+    private static final String PROMPT_VERSION = "v6-scene-consistency-crane-construction";
     private static final ImageFormat OPENAI_IMAGE_FORMAT = ImageFormat.JPEG;
     private final OpenAiFeignClient openAiFeignClient;
     private final SitePulseProperties properties;

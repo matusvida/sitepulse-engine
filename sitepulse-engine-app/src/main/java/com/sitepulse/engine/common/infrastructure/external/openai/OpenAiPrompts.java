@@ -92,6 +92,10 @@ public final class OpenAiPrompts {
                   3. Does it match an allowed class?
                   4. Is the bounding box tight and precise?
                   5. If any answer is no, omit the object
+                - Use a full-frame process, not a salience-first process:
+                  1. Scan the whole frame for all clearly visible allowed objects
+                  2. Check work areas, roads, and parking rows separately
+                  3. Only after the scan is complete, assemble the final detections list
                 1. CLASS RESTRICTION
                 - Use ONLY classes listed in ALLOWED CLASSES
                 - Use the exact class_id and class_name from the provided list
@@ -99,13 +103,20 @@ public final class OpenAiPrompts {
                 - If an object does not match an allowed class from the visible evidence, do not return it
                 - Partially visible or occluded vehicles and machines may still be valid detections when the visible portion is distinctive enough to identify the class
                 2. CONSTRUCTION RELEVANCE
-                - Detect ONLY objects that are inside the monitored construction site boundary and relevant to the project
-                - The monitored site may include the excavation area, internal access roads, staging areas, equipment laydown zones, and on-site worker or vehicle parking areas
-                - An object does not need to be actively moving or currently working to be valid
-                - Parked trucks, work vans, machinery, and site vehicles are valid detections if they are clearly inside the monitored site
+                - Detect ONLY objects that are inside the monitored construction site boundary and relevant to the monitored project
+                - Primary construction signals are workers, heavy trucks, excavators, loaders, cranes, and other construction machinery
+                - Secondary signals are cars, vans, pickups, and other light vehicles
+                - Relevant site areas may include the excavation area, pit edges, internal haul or access roads, loading or unloading points, staging areas, equipment laydown zones, and on-site parking or holding areas when they are visibly part of the monitored site
+                - An object does not need to be moving right now to be valid if it is clearly part of the monitored site
+                - Parked trucks, work vans, machinery, and site vehicles may still be valid detections if they are clearly inside the monitored site
+                - Return secondary light-vehicle detections only when they are clearly on-site and visually relevant, not merely incidental background context
+                - A crane under construction is still a valid crane detection when the mast, jib sections, base, or clearly recognizable crane assembly is visible on the monitored site
                 - Do not reject an object merely because it is distant, near the top of the image, stationary, or parked
                 - Valid site objects may appear in the upper quarter of the image due to perspective
                 - Do not treat top-of-frame objects as outside the site by default
+                - Evaluate every clearly visible candidate object independently; do not focus only on the most salient machine or vehicle
+                - The appearance of a large truck, excavator, or other prominent object must not cause other clearly visible valid objects to disappear from the output
+                - If several parked vans or site vehicles are clearly visible and a dump truck also appears, return both the dump truck and the still-visible vehicles
                 - Ignore unrelated background content, including:
                   - road traffic
                   - public traffic beyond the site fence or outside the monitored site boundary
@@ -148,10 +159,14 @@ public final class OpenAiPrompts {
                 - Keep notes under 12 words when possible
                 - Do not mention uncertainty, guesses, or hidden parts
                 - Do not mention dimensions in notes unless directly useful
+                - For a partially assembled crane, use notes that say it is under construction if that is visibly true
                 8. TRACKING
                 - Tracking is a second step, not a detection source
                 - First detect objects from the current image only
                 - Only after an object is independently visible in the current image may you assign same_or_unique and matched_track_id
+                - Treat the prior detections snapshot as a recall aid during the scan:
+                  - if a previously detected object is still clearly visible now, include it again
+                  - do not let a newly appeared salient object distract you from re-detecting previously visible objects
                 - same_or_unique = "same" only if the object clearly matches a previously tracked object identity
                 - same_or_unique = "unique" for a newly observed object
                 - If same_or_unique = "same", matched_track_id must be a non-null integer
@@ -159,6 +174,7 @@ public final class OpenAiPrompts {
                 - Never copy a previous detection, bbox, notes, or class into the current output unless the object is clearly visible now
                 - Exact bbox reuse from previous context is not valid evidence
                 - If an object existed in the previous image but is absent, cropped out, hidden, or visually ambiguous in the current image, do not return it
+                - Before finalizing the JSON, perform a last visibility check for previously seen parked vehicles, parking-row vans, and other stationary site objects that remain visible in the current frame
                 9. EMPTY RESULT
                 - If no valid allowed-class construction objects are clearly visible, return:
                   {"detections":[]}
@@ -181,9 +197,11 @@ public final class OpenAiPrompts {
                 class_group is a family hint only. It helps narrow the taxonomy, but the model must still output the exact class_id and class_name from the list.
 
                 SITE-BOUNDARY PRIORITY:
-                - Detect objects anywhere inside the monitored construction site boundary, not only in the active excavation or work zone
-                - Valid site areas may include the excavation, internal roads, staging areas, laydown zones, and on-site parking areas
-                - Parked on-site trucks, work vehicles, and machinery are valid detections when they are clearly inside the monitored site
+                - Detect objects anywhere inside the monitored construction site boundary when they are clearly part of the monitored site
+                - Relevant areas may include the excavation, pit edge, internal roads, haul roads, staging areas, laydown zones, loading or unloading points, and on-site parking or holding areas that are visibly inside the site
+                - If a van, car, pickup, truck, or machine is clearly visible and clearly inside the monitored site, keep it in the output even when another more prominent object appears
+                - Prioritize primary construction signals over secondary light-vehicle signals when judging borderline or ambiguous evidence
+                - Do not return a light vehicle when it is only faint incidental context, but do return it when it is clearly visible and clearly part of the monitored site
                 - Ignore objects outside the monitored site boundary even if they are visually clear
                 - Road traffic, sidewalk pedestrians, and adjacent-property equipment are out of scope unless they are clearly inside the monitored site
                 - Do not reject an object merely because it appears small, distant, in the upper part of the image, or stationary
@@ -194,11 +212,16 @@ public final class OpenAiPrompts {
                 %s
 
                 Use the prior detections only as context for tracking identity.
-                Detect from the current image first, then use prior context only to decide same vs unique.
+                Detect from the current image first, then use prior context as a recall checklist and to decide same vs unique.
                 If a previous object is not clearly visible in the current image, omit it completely.
                 Do not reuse an old bbox unless the current image independently supports it.
+                If a previously seen object is still clearly visible in the current image, keep detecting it consistently.
+                Do not drop a clearly visible parked van, car, pickup, or truck just because a dump truck or other more salient machine is also present.
+                Detect all clearly visible valid site objects in the frame, not only the most operationally important one.
+                Before producing the final JSON, re-scan the parking row / parked-vehicle area and confirm that any still-visible vehicles from the prior snapshot are either included now or intentionally omitted because they are no longer clearly visible or are only incidental weak background context.
+                If a crane is visibly being assembled, erected, or partially built on site, detect it as the appropriate crane class and state in notes that it is under construction.
                 A detection may still be valid when only part of a vehicle or truck is visible, if the currently visible portion is sufficient to identify it.
-                A parked or distant on-site truck remains a valid detection if it is clearly visible inside the monitored site boundary.
+                A distant or stationary vehicle may remain valid if it is clearly visible inside the monitored site boundary.
                 """;
 
         public static final String ROI_TEMPLATE = """
@@ -258,9 +281,9 @@ public final class OpenAiPrompts {
                 Map.entry("worker", new ClassHint("construction worker, often with PPE or workwear")),
                 Map.entry("operator", new ClassHint("machine operator or worker controlling equipment")),
                 Map.entry("supervisor", new ClassHint("site supervisor or foreman present in work area")),
-                Map.entry("car", new ClassHint("passenger car only if clearly part of active site work")),
-                Map.entry("van", new ClassHint("work van or service van on site")),
-                Map.entry("pickup_truck", new ClassHint("pickup truck used for site operations")),
+                Map.entry("car", new ClassHint("passenger car if clearly visible and inside the monitored site")),
+                Map.entry("van", new ClassHint("work or service van if clearly visible and inside the monitored site")),
+                Map.entry("pickup_truck", new ClassHint("pickup truck if clearly visible and inside the monitored site")),
                 Map.entry("truck", new ClassHint("large work truck or cargo truck")),
                 Map.entry("dump_truck", new ClassHint("dump truck with open tipping bed")),
                 Map.entry("concrete_mixer_truck", new ClassHint("truck with rotating concrete drum")),
@@ -281,7 +304,7 @@ public final class OpenAiPrompts {
                 Map.entry("telehandler", new ClassHint("telehandler with extending boom")),
                 Map.entry("paver", new ClassHint("asphalt or concrete paving machine")),
                 Map.entry("crane_mobile", new ClassHint("mobile crane with telescopic boom")),
-                Map.entry("crane_tower", new ClassHint("tower crane mast or jib visible on site")),
+                Map.entry("crane_tower", new ClassHint("tower crane or partially assembled tower crane visible on site")),
                 Map.entry("crane_truck", new ClassHint("truck-mounted crane or lorry crane")),
                 Map.entry("hoist", new ClassHint("construction hoist, lift cage, or mast section")),
                 Map.entry("cherry_picker", new ClassHint("boom lift or cherry picker platform vehicle")),

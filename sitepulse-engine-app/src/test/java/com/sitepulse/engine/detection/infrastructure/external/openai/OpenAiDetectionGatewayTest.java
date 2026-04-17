@@ -95,25 +95,52 @@ class OpenAiDetectionGatewayTest {
                 "Partial occlusion, truncation at the image edge, or hiding behind walls/barriers does not disqualify a real object by itself"
         ));
         assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
-                "Parked trucks, work vans, machinery, and site vehicles are valid detections if they are clearly inside the monitored site"
+                "The appearance of a large truck, excavator, or other prominent object must not cause other clearly visible valid objects to disappear from the output"
+        ));
+        assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
+                "Use a full-frame process, not a salience-first process"
+        ));
+        assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
+                "Secondary signals are cars, vans, pickups, and other light vehicles"
+        ));
+        assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
+                "A crane under construction is still a valid crane detection"
         ));
         assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
                 "Do not treat top-of-frame objects as outside the site by default"
         ));
 
-        OpenAiDetectionGateway gateway = gatewayWithClasses(new DetectionClassEntity(8, "truck", "truck"));
+        OpenAiDetectionGateway gateway = gatewayWithClasses(
+                new DetectionClassEntity(8, "truck", "truck"),
+                new DetectionClassEntity(9, "van", "light_vehicle"),
+                new DetectionClassEntity(10, "crane_tower", "lifting")
+        );
         String prompt = gateway.buildUserPrompt(null, null, 1920, 1080);
 
         assertTrue(prompt.contains(
                 "A detection may still be valid when only part of a vehicle or truck is visible"
         ));
         assertTrue(prompt.contains(
-                "Parked on-site trucks, work vehicles, and machinery are valid detections"
+                "If a van, car, pickup, truck, or machine is clearly visible and clearly inside the monitored site, keep it in the output even when another more prominent object appears"
+        ));
+        assertTrue(prompt.contains(
+                "Prioritize primary construction signals over secondary light-vehicle signals when judging borderline or ambiguous evidence"
+        ));
+        assertTrue(prompt.contains(
+                "Before producing the final JSON, re-scan the parking row / parked-vehicle area"
+        ));
+        assertTrue(prompt.contains(
+                "If a crane is visibly being assembled, erected, or partially built on site, detect it as the appropriate crane class and state in notes that it is under construction"
         ));
         assertTrue(prompt.contains(
                 "Do not reject an object merely because it appears small, distant, in the upper part of the image, or stationary"
         ));
         assertTrue(prompt.contains("\"class_group\":\"truck\""));
+        assertTrue(prompt.contains("\"class_group\":\"light_vehicle\""));
+        assertTrue(prompt.contains("\"class_group\":\"lifting\""));
+        assertTrue(prompt.contains(
+                "Do not drop a clearly visible parked van, car, pickup, or truck just because a dump truck or other more salient machine is also present"
+        ));
     }
 
     private OpenAiDetectionGateway gatewayWithClasses(DetectionClassEntity... classes) {
