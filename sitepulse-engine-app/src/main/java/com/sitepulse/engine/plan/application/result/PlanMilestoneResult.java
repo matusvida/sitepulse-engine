@@ -1,6 +1,6 @@
 package com.sitepulse.engine.plan.application.result;
 
-import com.sitepulse.engine.plan.domain.model.MilestoneStatus;
+import com.sitepulse.engine.plan.domain.enums.MilestoneStatus;
 import java.time.OffsetDateTime;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;

@@ -1,5 +1,6 @@
 package com.sitepulse.engine.plan.domain.model;
 
+import com.sitepulse.engine.plan.domain.enums.MilestoneStatus;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;

@@ -17,10 +17,15 @@ public class ReportSummaryView {
 
     private Integer id;
     private String reportType;
+    private String generationOrigin;
+    private String confidenceLevel;
+    private String periodLabel;
+    private String headline;
     private String summary;
     private String dateRangeStart;
     private String dateRangeEnd;
     private Integer imageCount;
+    private Integer evidenceImageCount;
     private String modelUsed;
     private String createdAt;
 }

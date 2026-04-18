@@ -3,9 +3,9 @@ package com.sitepulse.engine.detection.infrastructure.external;
 import com.sitepulse.engine.detection.domain.model.DetectionHealth;
 import com.sitepulse.engine.detection.domain.model.DetectionInference;
 import com.sitepulse.engine.detection.domain.model.RawDetection;
+import com.sitepulse.engine.detection.domain.model.DetectionClassDefinition;
 import com.sitepulse.engine.detection.domain.port.DetectionGateway;
-import com.sitepulse.engine.detection.application.service.DetectionClassCatalog;
-import com.sitepulse.engine.detection.infrastructure.persistence.DetectionClassEntity;
+import com.sitepulse.engine.detection.domain.port.DetectionClassCatalog;
 import com.sitepulse.engine.detection.infrastructure.external.yolo.YoloFeignClient;
 import com.sitepulse.engine.detection.infrastructure.external.yolo.dto.YoloInferRequest;
 import lombok.RequiredArgsConstructor;
@@ -34,12 +34,13 @@ public class YoloDetectionGateway implements DetectionGateway {
                 response.getImageWidth(),
                 response.getImageHeight(),
                 response.getInferenceMs(),
+                "unclear",
                 response.getRawDetections().stream()
                         .map(raw -> {
-                            DetectionClassEntity resolved = resolveDetectionClass(raw.getClassName());
+                            DetectionClassDefinition resolved = resolveDetectionClass(raw.getClassName());
                             return new RawDetection(
-                                    resolved.getId(),
-                                    resolved.getClassName(),
+                                    resolved.id(),
+                                    resolved.className(),
                                     raw.getScore(),
                                     raw.getBboxXyxy(),
                                     null,
@@ -51,7 +52,7 @@ public class YoloDetectionGateway implements DetectionGateway {
         );
     }
 
-    private DetectionClassEntity resolveDetectionClass(String className) {
+    private DetectionClassDefinition resolveDetectionClass(String className) {
         if (className == null || className.isBlank()) {
             return detectionClassCatalog.resolveByNameOrDefault("other_equipment", "other_equipment");
         }

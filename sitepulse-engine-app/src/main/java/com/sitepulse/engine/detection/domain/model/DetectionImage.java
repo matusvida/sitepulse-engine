@@ -1,5 +1,6 @@
 package com.sitepulse.engine.detection.domain.model;
 
+import com.sitepulse.engine.detection.domain.enums.ImageStatus;
 import java.time.OffsetDateTime;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -24,6 +25,12 @@ public class DetectionImage {
     private final OffsetDateTime capturedAt;
     private final OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
+    private String weatherNote;
+    private Double evidenceActivityScore;
+    private Double evidenceChangeScore;
+    private Double evidenceQualityScore;
+    private Double evidenceOverallScore;
+    private String evidenceSummary;
 
     private DetectionImage(
             Integer id,
@@ -34,7 +41,13 @@ public class DetectionImage {
             Integer cameraId,
             OffsetDateTime capturedAt,
             OffsetDateTime createdAt,
-            OffsetDateTime updatedAt
+            OffsetDateTime updatedAt,
+            String weatherNote,
+            Double evidenceActivityScore,
+            Double evidenceChangeScore,
+            Double evidenceQualityScore,
+            Double evidenceOverallScore,
+            String evidenceSummary
     ) {
         this.id = id;
         this.bucket = bucket;
@@ -45,6 +58,12 @@ public class DetectionImage {
         this.capturedAt = capturedAt;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.weatherNote = weatherNote;
+        this.evidenceActivityScore = evidenceActivityScore;
+        this.evidenceChangeScore = evidenceChangeScore;
+        this.evidenceQualityScore = evidenceQualityScore;
+        this.evidenceOverallScore = evidenceOverallScore;
+        this.evidenceSummary = evidenceSummary;
     }
 
     public static DetectionImage createNew(
@@ -55,7 +74,7 @@ public class DetectionImage {
             OffsetDateTime capturedAt,
             OffsetDateTime now
     ) {
-        return new DetectionImage(null, bucket, key, ImageStatus.NEW, projectId, cameraId, capturedAt, now, now);
+        return new DetectionImage(null, bucket, key, ImageStatus.NEW, projectId, cameraId, capturedAt, now, now, null, null, null, null, null, null);
     }
 
     public static DetectionImage restore(
@@ -67,9 +86,31 @@ public class DetectionImage {
             Integer cameraId,
             OffsetDateTime capturedAt,
             OffsetDateTime createdAt,
-            OffsetDateTime updatedAt
+            OffsetDateTime updatedAt,
+            String weatherNote,
+            Double evidenceActivityScore,
+            Double evidenceChangeScore,
+            Double evidenceQualityScore,
+            Double evidenceOverallScore,
+            String evidenceSummary
     ) {
-        return new DetectionImage(id, bucket, key, status, projectId, cameraId, capturedAt, createdAt, updatedAt);
+        return new DetectionImage(
+                id,
+                bucket,
+                key,
+                status,
+                projectId,
+                cameraId,
+                capturedAt,
+                createdAt,
+                updatedAt,
+                weatherNote,
+                evidenceActivityScore,
+                evidenceChangeScore,
+                evidenceQualityScore,
+                evidenceOverallScore,
+                evidenceSummary
+        );
     }
 
     public static DetectionImage createDetected(
@@ -80,7 +121,23 @@ public class DetectionImage {
             OffsetDateTime capturedAt,
             OffsetDateTime now
     ) {
-        return new DetectionImage(null, bucket, key, ImageStatus.DONE, projectId, cameraId, capturedAt, now, now);
+        return new DetectionImage(null, bucket, key, ImageStatus.DONE, projectId, cameraId, capturedAt, now, now, null, null, null, null, null, null);
+    }
+
+    public void applyAnalysisMetadata(
+            String weatherNote,
+            Double evidenceActivityScore,
+            Double evidenceChangeScore,
+            Double evidenceQualityScore,
+            Double evidenceOverallScore,
+            String evidenceSummary
+    ) {
+        this.weatherNote = normalize(weatherNote);
+        this.evidenceActivityScore = evidenceActivityScore;
+        this.evidenceChangeScore = evidenceChangeScore;
+        this.evidenceQualityScore = evidenceQualityScore;
+        this.evidenceOverallScore = evidenceOverallScore;
+        this.evidenceSummary = evidenceSummary;
     }
 
     public void markProcessing(OffsetDateTime now) {
@@ -105,5 +162,9 @@ public class DetectionImage {
         }
         status = ImageStatus.FAILED;
         updatedAt = now;
+    }
+
+    private String normalize(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

@@ -1,5 +1,6 @@
 package com.sitepulse.engine.metrics.domain.model;
 
+import com.sitepulse.engine.metrics.domain.enums.RiskLevel;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import lombok.AccessLevel;

@@ -1,6 +1,6 @@
 package com.sitepulse.engine.sync.domain.service;
 
-import com.sitepulse.engine.common.domain.model.ImageFormat;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;

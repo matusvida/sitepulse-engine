@@ -1,8 +1,7 @@
 package com.sitepulse.engine.snapshot.application.usecase;
 
 import com.sitepulse.engine.common.exception.ResourceNotFoundException;
-import com.sitepulse.engine.detection.infrastructure.persistence.ImageEntity;
-import com.sitepulse.engine.detection.infrastructure.persistence.ImageRepository;
+import com.sitepulse.engine.snapshot.domain.port.SnapshotSourceImageReadModel;
 import com.sitepulse.engine.project.domain.model.Camera;
 import com.sitepulse.engine.project.domain.model.Project;
 import com.sitepulse.engine.snapshot.application.result.CameraSnapshotProfile;
@@ -22,7 +21,7 @@ import org.springframework.stereotype.Service;
 public class ResolveCameraSnapshotSourceUseCase {
 
     private static final int SOURCE_CANDIDATE_LIMIT = 20;
-    private final ImageRepository imageRepository;
+    private final SnapshotSourceImageReadModel snapshotSourceImageReadModel;
     private final CameraSnapshotProfileService profileService;
     private final SnapshotTimezoneResolver timezoneResolver;
     private final Clock clock;
@@ -41,10 +40,10 @@ public class ResolveCameraSnapshotSourceUseCase {
         ZonedDateTime midday = snapshotDate.atTime(12, 0).atZone(zone);
 
         boolean frozen = snapshotDate.isBefore(today) || !now.toLocalTime().isBefore(profile.freezeTime());
-        List<ImageEntity> sourceImages = frozen
-                ? imageRepository.findRepresentativeSnapshotCandidatesByCameraId(
+        var sourceImages = frozen
+                ? snapshotSourceImageReadModel.findRepresentativeSnapshotCandidatesByCameraId(
                         camera.getId(), toUtc(dayStart), toUtc(dayEnd), toUtc(midday), SOURCE_CANDIDATE_LIMIT)
-                : imageRepository.findLatestSnapshotCandidatesByCameraId(
+                : snapshotSourceImageReadModel.findLatestSnapshotCandidatesByCameraId(
                         camera.getId(), toUtc(dayStart), toUtc(dayEnd), SOURCE_CANDIDATE_LIMIT);
         if (sourceImages.isEmpty()) {
             throw new ResourceNotFoundException("No image found for " + snapshotDate);

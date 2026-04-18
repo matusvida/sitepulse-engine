@@ -1,7 +1,7 @@
 package com.sitepulse.engine.sync.domain.event;
 
 import com.sitepulse.engine.common.domain.event.DomainEvent;
-import com.sitepulse.engine.sync.domain.model.SyncJobStatus;
+import com.sitepulse.engine.sync.domain.enums.SyncJobStatus;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;

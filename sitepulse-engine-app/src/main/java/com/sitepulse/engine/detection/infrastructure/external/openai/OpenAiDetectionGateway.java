@@ -2,21 +2,23 @@ package com.sitepulse.engine.detection.infrastructure.external.openai;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sitepulse.engine.common.domain.model.ImageFormat;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
 import com.sitepulse.engine.common.exception.ExternalServiceException;
 import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiPrompts.Detection;
 import com.sitepulse.engine.config.SitePulseProperties;
 import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiFeignClient;
 import com.sitepulse.engine.common.infrastructure.external.openai.dto.OpenAiChatRequest;
 import com.sitepulse.engine.common.infrastructure.external.openai.dto.OpenAiChatResponse;
-import com.sitepulse.engine.detection.application.service.DetectionClassCatalog;
+import com.sitepulse.engine.detection.domain.model.AiDetectionResult;
 import com.sitepulse.engine.detection.domain.model.CameraRoiSettings;
+import com.sitepulse.engine.detection.domain.model.DetectionClassDefinition;
 import com.sitepulse.engine.detection.domain.model.DetectionContext;
 import com.sitepulse.engine.detection.domain.model.DetectionInference;
 import com.sitepulse.engine.detection.domain.model.RawDetection;
+import com.sitepulse.engine.detection.domain.port.AiDetectionGateway;
+import com.sitepulse.engine.detection.domain.port.DetectionClassCatalog;
 import com.sitepulse.engine.detection.infrastructure.external.openai.dto.OpenAiDetectionItem;
 import com.sitepulse.engine.detection.infrastructure.external.openai.dto.OpenAiDetectionPayload;
-import com.sitepulse.engine.detection.infrastructure.persistence.DetectionClassEntity;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -37,7 +39,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class OpenAiDetectionGateway {
+public class OpenAiDetectionGateway implements AiDetectionGateway {
 
     private static final String PROMPT_VERSION = "v6-scene-consistency-crane-construction";
     private static final ImageFormat OPENAI_IMAGE_FORMAT = ImageFormat.JPEG;
@@ -46,7 +48,8 @@ public class OpenAiDetectionGateway {
     private final ObjectMapper objectMapper;
     private final DetectionClassCatalog detectionClassCatalog;
 
-    public OpenAiDetectionResult infer(byte[] imageBytes, DetectionContext context, CameraRoiSettings cameraSettings) {
+    @Override
+    public AiDetectionResult infer(byte[] imageBytes, DetectionContext context, CameraRoiSettings cameraSettings) {
         BufferedImage image = decode(imageBytes);
         boolean roiIncluded = cameraSettings != null && cameraSettings.hasRoi();
         Integer promptWidth = cameraSettings == null ? null : cameraSettings.imageWidth();
@@ -95,12 +98,13 @@ public class OpenAiDetectionGateway {
                 PROMPT_VERSION,
                 detections.size()
         );
-        return new OpenAiDetectionResult(
+        return new AiDetectionResult(
                 new DetectionInference(
                         properties.openaiModel(),
                         image.getWidth(),
                         image.getHeight(),
                         latencyMs,
+                        normalizeWeather(payload == null ? null : payload.getWeatherNote()),
                         detections
                 ),
                 json,
@@ -109,6 +113,7 @@ public class OpenAiDetectionGateway {
         );
     }
 
+    @Override
     public String promptVersion() {
         return PROMPT_VERSION;
     }
@@ -166,22 +171,22 @@ public class OpenAiDetectionGateway {
                 .toList();
     }
 
-    private Map<String, Object> toGroupDescriptor(String classGroup, List<DetectionClassEntity> classes) {
+    private Map<String, Object> toGroupDescriptor(String classGroup, List<DetectionClassDefinition> classes) {
         Map<String, Object> descriptor = new LinkedHashMap<>();
         descriptor.put("class_group", classGroup);
         descriptor.put("classes", classes.stream()
-                .filter(entry -> entry.getId() != 0)
+                .filter(entry -> entry.id() != 0)
                 .map(this::toClassDescriptor)
                 .toList());
         return descriptor;
     }
 
-    private Map<String, Object> toClassDescriptor(DetectionClassEntity entry) {
+    private Map<String, Object> toClassDescriptor(DetectionClassDefinition entry) {
         Map<String, Object> descriptor = new LinkedHashMap<>();
-        descriptor.put("class_group", entry.getClassGroup());
-        descriptor.put("class_id", entry.getId());
-        descriptor.put("class_name", entry.getClassName());
-        Detection.ClassHint hint = Detection.CLASS_HINTS.get(entry.getClassName());
+        descriptor.put("class_group", entry.classGroup());
+        descriptor.put("class_id", entry.id());
+        descriptor.put("class_name", entry.className());
+        Detection.ClassHint hint = Detection.CLASS_HINTS.get(entry.className());
         if (hint != null) {
             descriptor.put("detection_hints", hint.detectionHints());
         }
@@ -194,15 +199,15 @@ public class OpenAiDetectionGateway {
         }
         List<RawDetection> raw = new ArrayList<>();
         for (OpenAiDetectionItem item : payload.getDetections()) {
-            DetectionClassEntity resolved = resolveDetectionClass(item.getClassId(), item.getClassName());
+            DetectionClassDefinition resolved = resolveDetectionClass(item.getClassId(), item.getClassName());
             List<Double> bbox = normalizeBbox(item.getBboxXyxy(), width, height);
             Double score = normalizeScore(item.getScore());
             String colorHint = normalizeColor(item.getColorHint());
             String notes = normalizeNotes(item.getNotes());
             Integer trackId = resolveTrackId(item);
             raw.add(new RawDetection(
-                    resolved.getId(),
-                    resolved.getClassName(),
+                    resolved.id(),
+                    resolved.className(),
                     score,
                     bbox,
                     trackId,
@@ -213,7 +218,7 @@ public class OpenAiDetectionGateway {
         return raw;
     }
 
-    private DetectionClassEntity resolveDetectionClass(Integer classId, String className) {
+    private DetectionClassDefinition resolveDetectionClass(Integer classId, String className) {
         if (classId != null) {
             return detectionClassCatalog.findById(classId)
                     .orElseThrow(() -> new ExternalServiceException("Unknown class_id from OpenAI: " + classId));
@@ -278,11 +283,19 @@ public class OpenAiDetectionGateway {
         return trimmed.length() > 80 ? trimmed.substring(0, 80) : trimmed;
     }
 
+    private String normalizeWeather(String value) {
+        if (value == null || value.isBlank()) {
+            return "unclear";
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        return normalized.length() > 64 ? normalized.substring(0, 64) : normalized;
+    }
+
     private double clamp(Double value, int min, int max) {
         if (value == null) {
             return min;
         }
-        return Math.max(min, Math.min(max, value));
+        return Math.clamp(value, min, max);
     }
 
     private BufferedImage decode(byte[] imageBytes) {
@@ -329,9 +342,9 @@ public class OpenAiDetectionGateway {
 
     private String summarizeClasses() {
         return detectionClassCatalog.byId().values().stream()
-                .sorted(Comparator.comparing(DetectionClassEntity::getId))
-                .filter(entry -> entry.getId() != 0)
-                .map(DetectionClassEntity::getClassName)
+                .sorted(Comparator.comparing(DetectionClassDefinition::id))
+                .filter(entry -> entry.id() != 0)
+                .map(DetectionClassDefinition::className)
                 .collect(Collectors.joining(","));
     }
 

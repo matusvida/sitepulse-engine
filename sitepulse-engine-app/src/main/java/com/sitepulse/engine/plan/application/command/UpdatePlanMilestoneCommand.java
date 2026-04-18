@@ -1,6 +1,6 @@
 package com.sitepulse.engine.plan.application.command;
 
-import com.sitepulse.engine.plan.domain.model.MilestoneStatus;
+import com.sitepulse.engine.plan.domain.enums.MilestoneStatus;
 
 public record UpdatePlanMilestoneCommand(
         Integer projectId,

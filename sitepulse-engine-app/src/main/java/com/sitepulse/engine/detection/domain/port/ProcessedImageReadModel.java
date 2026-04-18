@@ -14,6 +14,8 @@ public interface ProcessedImageReadModel {
 
     Optional<StoredImage> findClosestSnapshot(Integer projectId, OffsetDateTime dayStart, OffsetDateTime dayEnd, OffsetDateTime midday);
 
+    Optional<StoredImage> findPreviousDoneImage(Integer projectId, Integer cameraId, OffsetDateTime capturedAt, Integer imageId);
+
     List<StoredImage> findDoneInRange(Integer projectId, OffsetDateTime from, OffsetDateTime to);
 
     List<StoredImage> findProcessedByProject(Integer projectId);

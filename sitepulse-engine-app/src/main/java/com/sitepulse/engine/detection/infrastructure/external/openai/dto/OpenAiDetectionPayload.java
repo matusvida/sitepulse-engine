@@ -17,5 +17,6 @@ import lombok.ToString;
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class OpenAiDetectionPayload {
 
+    private String weatherNote;
     private List<OpenAiDetectionItem> detections;
 }

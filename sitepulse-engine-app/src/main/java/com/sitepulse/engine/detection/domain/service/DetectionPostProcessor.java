@@ -29,7 +29,7 @@ public class DetectionPostProcessor {
         BufferedImage image = decode(imageBytes);
         List<String> warnings = imageQualityWarnings(image);
         if (!warnings.isEmpty() && properties.skipBadQuality()) {
-            return new DetectionOutcome(null, bucket, key, image.getWidth(), image.getHeight(), 0.0, List.of(), append(warnings, "Skipped inference due to bad image quality"), true);
+            return new DetectionOutcome(null, bucket, key, image.getWidth(), image.getHeight(), 0.0, inference.weatherNote(), List.of(), append(warnings, "Skipped inference due to bad image quality"), true);
         }
         List<DetectedObject> detections = filterDetections(inference.rawDetections(), cameraRoiSettings, warnings);
         return new DetectionOutcome(
@@ -39,6 +39,7 @@ public class DetectionPostProcessor {
                 inference.imageWidth(),
                 inference.imageHeight(),
                 inference.inferenceMs(),
+                inference.weatherNote(),
                 detections,
                 warnings,
                 false

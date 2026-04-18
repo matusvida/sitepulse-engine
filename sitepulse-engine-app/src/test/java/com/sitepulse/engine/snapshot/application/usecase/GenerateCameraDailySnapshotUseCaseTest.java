@@ -1,17 +1,17 @@
 package com.sitepulse.engine.snapshot.application.usecase;
 
-import com.sitepulse.engine.common.domain.model.ImageFormat;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
 import com.sitepulse.engine.common.domain.port.ObjectStorage;
 import com.sitepulse.engine.common.exception.ExternalServiceException;
+import com.sitepulse.engine.detection.domain.model.StoredImage;
 import com.sitepulse.engine.project.domain.model.Camera;
 import com.sitepulse.engine.project.domain.model.Project;
+import com.sitepulse.engine.snapshot.application.port.CameraDailySnapshotStore;
 import com.sitepulse.engine.snapshot.application.result.CameraSnapshotProfile;
 import com.sitepulse.engine.snapshot.application.result.CameraSnapshotSourceDecision;
 import com.sitepulse.engine.snapshot.application.service.CameraSnapshotProfileService;
 import com.sitepulse.engine.snapshot.application.service.SnapshotKeyFactory;
 import com.sitepulse.engine.snapshot.application.service.WebImageTransformer;
-import com.sitepulse.engine.snapshot.infrastructure.persistence.CameraDailySnapshotEntity;
-import com.sitepulse.engine.snapshot.infrastructure.persistence.CameraDailySnapshotRepository;
 import java.io.InputStream;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -41,14 +41,14 @@ class GenerateCameraDailySnapshotUseCaseTest {
                 return new CameraSnapshotSourceDecision(List.of(first, second), true);
             }
         };
-        CameraSnapshotProfileService profileService = new CameraSnapshotProfileService(null, null, null) {
+        CameraSnapshotProfileService profileService = new CameraSnapshotProfileService(null, null) {
             @Override
             public CameraSnapshotProfile getOrCreate(Integer cameraId) {
                 return new CameraSnapshotProfile(cameraId, 1920, 75, ImageFormat.WEBP, LocalTime.of(17, 0));
             }
         };
         RecordingObjectStorage objectStorage = new RecordingObjectStorage(testImageBytes());
-        CameraDailySnapshotRepository repository = repository();
+        CameraDailySnapshotStore repository = repository();
 
         GenerateCameraDailySnapshotUseCase useCase = new GenerateCameraDailySnapshotUseCase(
                 resolveSourceUseCase,
@@ -67,16 +67,14 @@ class GenerateCameraDailySnapshotUseCaseTest {
         assertTrue(objectStorage.uploaded);
     }
 
-    private static CameraDailySnapshotRepository repository() {
-        return (CameraDailySnapshotRepository) Proxy.newProxyInstance(
-                CameraDailySnapshotRepository.class.getClassLoader(),
-                new Class<?>[] {CameraDailySnapshotRepository.class},
+    private static CameraDailySnapshotStore repository() {
+        return (CameraDailySnapshotStore) Proxy.newProxyInstance(
+                CameraDailySnapshotStore.class.getClassLoader(),
+                new Class<?>[] {CameraDailySnapshotStore.class},
                 (proxy, method, args) -> switch (method.getName()) {
                     case "findByCameraIdAndSnapshotDate" -> Optional.empty();
                     case "save" -> {
-                        CameraDailySnapshotEntity entity = (CameraDailySnapshotEntity) args[0];
-                        entity.setId(1L);
-                        yield entity;
+                        yield args[0];
                     }
                     default -> throw new UnsupportedOperationException(method.getName());
                 }
@@ -93,13 +91,19 @@ class GenerateCameraDailySnapshotUseCaseTest {
                 OffsetDateTime.of(2026, 4, 1, 0, 0, 0, 0, ZoneOffset.UTC));
     }
 
-    private static com.sitepulse.engine.detection.infrastructure.persistence.ImageEntity imageEntity(int id, String key) {
-        return com.sitepulse.engine.detection.infrastructure.persistence.ImageEntity.builder()
-                .id(id)
-                .bucket("bucket")
-                .key(key)
-                .capturedAt(OffsetDateTime.of(2026, 3, 4, 11, 56, 4, 0, ZoneOffset.UTC))
-                .build();
+    private static StoredImage imageEntity(int id, String key) {
+        return new StoredImage(
+                id,
+                "bucket",
+                key,
+                OffsetDateTime.of(2026, 3, 4, 11, 56, 4, 0, ZoneOffset.UTC),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
     }
 
     private static byte[] testImageBytes() throws Exception {

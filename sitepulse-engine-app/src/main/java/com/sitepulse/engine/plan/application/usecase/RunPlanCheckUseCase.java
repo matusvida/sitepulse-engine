@@ -8,9 +8,9 @@ import com.sitepulse.engine.plan.application.result.PlanCheckMilestoneResult;
 import com.sitepulse.engine.plan.application.result.PlanCheckResult;
 import com.sitepulse.engine.plan.domain.event.MilestoneDelayedEvent;
 import com.sitepulse.engine.plan.domain.model.MilestoneAssessment;
-import com.sitepulse.engine.plan.domain.model.MilestoneStatus;
+import com.sitepulse.engine.plan.domain.enums.MilestoneStatus;
 import com.sitepulse.engine.plan.domain.model.PlanMilestone;
-import com.sitepulse.engine.plan.domain.model.PlanStatus;
+import com.sitepulse.engine.plan.domain.enums.PlanStatus;
 import com.sitepulse.engine.plan.domain.port.ConstructionPlanCatalogRepository;
 import com.sitepulse.engine.plan.domain.port.PlanEvidenceImageProvider;
 import com.sitepulse.engine.plan.domain.port.PlanIntelligenceGateway;
@@ -73,8 +73,6 @@ public class RunPlanCheckUseCase {
                     assessment.actualState(),
                     null
             );
-        } catch (SitePulseException ex) {
-            return new PlanCheckMilestoneResult(milestone.getId(), milestone.getTitle(), "error", null, ex.getMessage());
         } catch (RuntimeException ex) {
             return new PlanCheckMilestoneResult(milestone.getId(), milestone.getTitle(), "error", null, ex.getMessage());
         }

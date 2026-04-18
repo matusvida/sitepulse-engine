@@ -1,7 +1,7 @@
 package com.sitepulse.engine.alert.domain.port;
 
 import com.sitepulse.engine.alert.domain.model.Alert;
-import com.sitepulse.engine.alert.domain.model.AlertStatus;
+import com.sitepulse.engine.alert.domain.enums.AlertStatus;
 import java.util.List;
 import java.util.Optional;
 

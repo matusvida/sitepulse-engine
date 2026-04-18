@@ -1,6 +1,6 @@
 package com.sitepulse.engine.alert.application.command;
 
-import com.sitepulse.engine.alert.domain.model.AlertSeverity;
+import com.sitepulse.engine.alert.domain.enums.AlertSeverity;
 import java.util.List;
 
 public record CreateAlertCommand(

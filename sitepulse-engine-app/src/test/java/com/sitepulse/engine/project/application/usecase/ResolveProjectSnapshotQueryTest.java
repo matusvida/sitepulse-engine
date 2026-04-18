@@ -1,6 +1,6 @@
 package com.sitepulse.engine.project.application.usecase;
 
-import com.sitepulse.engine.common.domain.model.ImageFormat;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
 import com.sitepulse.engine.common.exception.ResourceNotFoundException;
 import com.sitepulse.engine.project.application.ProjectLookupService;
 import com.sitepulse.engine.project.application.ProjectSnapshotService;

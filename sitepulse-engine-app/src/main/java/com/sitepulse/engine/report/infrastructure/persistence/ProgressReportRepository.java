@@ -10,4 +10,6 @@ public interface ProgressReportRepository extends JpaRepository<ProgressReportEn
     List<ProgressReportEntity> findByProjectIdOrderByCreatedAtDesc(Integer projectId, Pageable pageable);
 
     Optional<ProgressReportEntity> findByIdAndProjectId(Integer id, Integer projectId);
+
+    Optional<ProgressReportEntity> findByProjectIdAndPeriodKey(Integer projectId, String periodKey);
 }

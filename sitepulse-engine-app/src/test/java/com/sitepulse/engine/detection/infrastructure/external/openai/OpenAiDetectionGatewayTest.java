@@ -1,10 +1,11 @@
 package com.sitepulse.engine.detection.infrastructure.external.openai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sitepulse.engine.common.domain.model.ImageFormat;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
 import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiPrompts;
 import com.sitepulse.engine.config.SitePulseProperties;
-import com.sitepulse.engine.detection.application.service.DetectionClassCatalog;
+import com.sitepulse.engine.detection.domain.model.DetectionClassDefinition;
+import com.sitepulse.engine.detection.domain.port.DetectionClassCatalog;
 import com.sitepulse.engine.detection.domain.model.CameraRoiSettings;
 import com.sitepulse.engine.detection.domain.model.DetectionContext;
 import com.sitepulse.engine.detection.domain.model.DetectionContextItem;
@@ -95,25 +96,23 @@ class OpenAiDetectionGatewayTest {
                 "Partial occlusion, truncation at the image edge, or hiding behind walls/barriers does not disqualify a real object by itself"
         ));
         assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
-                "The appearance of a large truck, excavator, or other prominent object must not cause other clearly visible valid objects to disappear from the output"
+                "Do not substitute one heavy machine class for another just because both are plausible construction equipment"
         ));
         assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
-                "Use a full-frame process, not a salience-first process"
-        ));
-        assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
-                "Secondary signals are cars, vans, pickups, and other light vehicles"
-        ));
-        assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
-                "A crane under construction is still a valid crane detection"
+                "If the image shows a drilling mast, piling rig, or soil-drilling assembly and there is no exact drilling-rig class in ALLOWED CLASSES, use other_equipment rather than bulldozer or excavator"
         ));
         assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
                 "Do not treat top-of-frame objects as outside the site by default"
+        ));
+        assertTrue(OpenAiPrompts.Detection.SYSTEM_PROMPT.contains(
+                "If a machine remains in roughly the same place, keep its class stable unless current visible evidence clearly contradicts the previous class"
         ));
 
         OpenAiDetectionGateway gateway = gatewayWithClasses(
                 new DetectionClassEntity(8, "truck", "truck"),
                 new DetectionClassEntity(9, "van", "light_vehicle"),
-                new DetectionClassEntity(10, "crane_tower", "lifting")
+                new DetectionClassEntity(10, "crane_tower", "lifting"),
+                new DetectionClassEntity(11, "other_equipment", "other_equipment")
         );
         String prompt = gateway.buildUserPrompt(null, null, 1920, 1080);
 
@@ -121,44 +120,65 @@ class OpenAiDetectionGatewayTest {
                 "A detection may still be valid when only part of a vehicle or truck is visible"
         ));
         assertTrue(prompt.contains(
-                "If a van, car, pickup, truck, or machine is clearly visible and clearly inside the monitored site, keep it in the output even when another more prominent object appears"
-        ));
-        assertTrue(prompt.contains(
-                "Prioritize primary construction signals over secondary light-vehicle signals when judging borderline or ambiguous evidence"
-        ));
-        assertTrue(prompt.contains(
-                "Before producing the final JSON, re-scan the parking row / parked-vehicle area"
-        ));
-        assertTrue(prompt.contains(
-                "If a crane is visibly being assembled, erected, or partially built on site, detect it as the appropriate crane class and state in notes that it is under construction"
-        ));
-        assertTrue(prompt.contains(
-                "Do not reject an object merely because it appears small, distant, in the upper part of the image, or stationary"
+                "If multiple stationary machines remain in a stable layout across frames, re-evaluate each machine position separately before finalizing."
         ));
         assertTrue(prompt.contains("\"class_group\":\"truck\""));
         assertTrue(prompt.contains("\"class_group\":\"light_vehicle\""));
         assertTrue(prompt.contains("\"class_group\":\"lifting\""));
         assertTrue(prompt.contains(
-                "Do not drop a clearly visible parked van, car, pickup, or truck just because a dump truck or other more salient machine is also present"
+                "\"detection_hints\":\"site-relevant equipment that does not fit a more specific class, including drill rigs, piling rigs, or soil drilling machinery\""
         ));
     }
 
     private OpenAiDetectionGateway gatewayWithClasses(DetectionClassEntity... classes) {
-        DetectionClassCatalog detectionClassCatalog = new DetectionClassCatalog(null) {
+        DetectionClassCatalog detectionClassCatalog = new DetectionClassCatalog() {
             @Override
-            public Map<Integer, DetectionClassEntity> byId() {
+            public Map<Integer, DetectionClassDefinition> byId() {
                 return java.util.Arrays.stream(classes)
-                        .collect(java.util.stream.Collectors.toMap(DetectionClassEntity::getId, val -> val));
+                        .map(val -> new DetectionClassDefinition(val.getId(), val.getClassName(), val.getClassGroup()))
+                        .collect(java.util.stream.Collectors.toMap(DetectionClassDefinition::id, val -> val));
             }
 
             @Override
-            public Map<String, List<DetectionClassEntity>> byGroup() {
+            public java.util.Optional<DetectionClassDefinition> findById(Integer id) {
+                return java.util.Optional.ofNullable(byId().get(id));
+            }
+
+            @Override
+            public java.util.Optional<DetectionClassDefinition> findByName(String name) {
+                return byId().values().stream()
+                        .filter(val -> val.className().equalsIgnoreCase(name))
+                        .findFirst();
+            }
+
+            @Override
+            public Map<String, List<DetectionClassDefinition>> byGroup() {
                 return java.util.Arrays.stream(classes)
+                        .map(val -> new DetectionClassDefinition(val.getId(), val.getClassName(), val.getClassGroup()))
                         .collect(java.util.stream.Collectors.groupingBy(
-                                DetectionClassEntity::getClassGroup,
+                                DetectionClassDefinition::classGroup,
                                 java.util.LinkedHashMap::new,
                                 java.util.stream.Collectors.toList()
                         ));
+            }
+
+            @Override
+            public DetectionClassDefinition resolveByNameOrDefault(String name, String defaultName) {
+                return findByName(name).or(() -> findByName(defaultName)).orElseThrow();
+            }
+
+            @Override
+            public DetectionClassDefinition resolveBestEffort(String label) {
+                return resolveByNameOrDefault(label, "other_equipment");
+            }
+
+            @Override
+            public Integer resolveIdBestEffort(String label) {
+                return resolveBestEffort(label).id();
+            }
+
+            @Override
+            public void refresh() {
             }
         };
         return new OpenAiDetectionGateway(null, testProperties(), new ObjectMapper(), detectionClassCatalog);

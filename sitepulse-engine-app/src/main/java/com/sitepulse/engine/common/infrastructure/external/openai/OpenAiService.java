@@ -3,7 +3,7 @@ package com.sitepulse.engine.common.infrastructure.external.openai;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sitepulse.engine.common.domain.model.ImageFormat;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
 import com.sitepulse.engine.common.exception.ConfigurationException;
 import com.sitepulse.engine.common.exception.ExternalServiceException;
 import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiPrompts.Detection;
@@ -64,13 +64,20 @@ public class OpenAiService {
         if (!milestonesContext.isBlank()) {
             textBlock.append("## Plan Milestones\n").append(milestonesContext).append("\n\n");
         }
-        textBlock.append("## Site Photos\nBelow are site photos from the report period:\n");
+        textBlock.append("""
+                ## Evidence Images
+                Below are evidence images from the report period.
+                Do not output placeholder image headings such as Photo 1, Photo 2, or Photo 3.
+                The frontend will render clickable evidence image links separately.
+                Use timestamps only when they support a concrete observation.
+                
+                """);
         contentParts.add(Map.of("type", "text", "text", textBlock.toString()));
         for (OpenAiImagePayload image : imageData) {
-            contentParts.add(Map.of("type", "text", "text", "Photo date: " + image.getDate()));
+            contentParts.add(Map.of("type", "text", "text", "Evidence timestamp: " + image.getDate()));
             contentParts.add(Map.of(
                     "type", "image_url",
-                    "image_url", Map.of("url", OPENAI_IMAGE_FORMAT.dataUriPrefix() + image.getBase64Content(), "detail", "low")
+                    "image_url", Map.of("url", OPENAI_IMAGE_FORMAT.dataUriPrefix() + image.getBase64Content(), "detail", "high")
             ));
         }
         log.info("OpenAI request type=progress_report model={} images={} metrics_chars={} milestones_chars={}", properties.openaiModel(), imageData == null ? 0 : imageData.size(), metricsContext == null ? 0 : metricsContext.length(), milestonesContext == null ? 0 : milestonesContext.length());

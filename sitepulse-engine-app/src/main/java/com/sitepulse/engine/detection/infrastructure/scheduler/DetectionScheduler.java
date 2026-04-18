@@ -1,6 +1,6 @@
 package com.sitepulse.engine.detection.infrastructure.scheduler;
 
-import com.sitepulse.engine.scheduler.application.JobExecutionGate;
+import com.sitepulse.engine.scheduler.infrastructure.JobExecutionGate;
 import com.sitepulse.engine.detection.application.usecase.ProcessPendingImagesUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

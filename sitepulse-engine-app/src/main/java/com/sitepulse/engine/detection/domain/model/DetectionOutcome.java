@@ -9,6 +9,7 @@ public record DetectionOutcome(
         Integer imageWidth,
         Integer imageHeight,
         Double inferenceMs,
+        String weatherNote,
         List<DetectedObject> detections,
         List<String> warnings,
         boolean skipped

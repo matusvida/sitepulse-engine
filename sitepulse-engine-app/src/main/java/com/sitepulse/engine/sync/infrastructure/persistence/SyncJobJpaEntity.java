@@ -1,6 +1,6 @@
 package com.sitepulse.engine.sync.infrastructure.persistence;
 
-import com.sitepulse.engine.sync.domain.model.SyncJobStatus;
+import com.sitepulse.engine.sync.domain.enums.SyncJobStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

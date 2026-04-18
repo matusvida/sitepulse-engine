@@ -1,5 +1,6 @@
 package com.sitepulse.engine.sync.domain.model;
 
+import com.sitepulse.engine.sync.domain.enums.SyncJobStatus;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;

@@ -3,8 +3,10 @@ package com.sitepulse.engine.report.web;
 import com.sitepulse.engine.http.report.api.ReportApi;
 import com.sitepulse.engine.http.report.dto.GenerateReportRequest;
 import com.sitepulse.engine.http.report.dto.ReportDetailView;
+import com.sitepulse.engine.http.report.dto.ReportEvidenceImageView;
 import com.sitepulse.engine.http.report.dto.ReportSummaryView;
 import com.sitepulse.engine.report.application.result.ProgressReportResult;
+import com.sitepulse.engine.report.application.result.ReportEvidenceImageResult;
 import com.sitepulse.engine.report.application.usecase.GenerateProgressReportUseCase;
 import com.sitepulse.engine.report.application.usecase.GetProjectReportQuery;
 import com.sitepulse.engine.report.application.usecase.ListProjectReportsQuery;
@@ -50,10 +52,15 @@ public class ReportController implements ReportApi {
         return new ReportSummaryView(
                 result.getId(),
                 result.getReportType(),
+                result.getGenerationOrigin(),
+                result.getConfidenceLevel(),
+                result.getPeriodLabel(),
+                result.getHeadline(),
                 result.getSummary(),
                 result.getDateRangeStart() == null ? null : result.getDateRangeStart().toString(),
                 result.getDateRangeEnd() == null ? null : result.getDateRangeEnd().toString(),
                 result.getImageCount(),
+                result.getEvidenceImageCount(),
                 result.getModelUsed(),
                 result.getCreatedAt() == null ? null : result.getCreatedAt().toString()
         );
@@ -63,14 +70,31 @@ public class ReportController implements ReportApi {
         return new ReportDetailView(
                 result.getId(),
                 result.getReportType(),
+                result.getGenerationOrigin(),
+                result.getConfidenceLevel(),
+                result.getPeriodLabel(),
+                result.getHeadline(),
                 result.getSummary(),
                 result.getDateRangeStart() == null ? null : result.getDateRangeStart().toString(),
                 result.getDateRangeEnd() == null ? null : result.getDateRangeEnd().toString(),
                 result.getImageCount(),
+                result.getEvidenceImageCount(),
                 result.getModelUsed(),
                 result.getCreatedAt() == null ? null : result.getCreatedAt().toString(),
                 String.valueOf(result.getProjectId()),
-                result.getContentMd()
+                result.getContentMd(),
+                result.getEvidenceImages() == null ? List.of() : result.getEvidenceImages().stream()
+                        .map(this::toEvidenceImageView)
+                        .toList()
+        );
+    }
+
+    private ReportEvidenceImageView toEvidenceImageView(ReportEvidenceImageResult result) {
+        return new ReportEvidenceImageView(
+                result.capturedAt(),
+                result.date(),
+                result.url(),
+                result.key()
         );
     }
 }

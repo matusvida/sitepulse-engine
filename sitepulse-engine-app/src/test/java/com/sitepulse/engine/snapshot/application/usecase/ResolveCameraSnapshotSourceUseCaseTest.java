@@ -1,14 +1,15 @@
 package com.sitepulse.engine.snapshot.application.usecase;
 
-import com.sitepulse.engine.common.domain.model.ImageFormat;
-import com.sitepulse.engine.detection.infrastructure.persistence.ImageEntity;
-import com.sitepulse.engine.detection.infrastructure.persistence.ImageRepository;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
+import com.sitepulse.engine.detection.domain.model.StoredImage;
 import com.sitepulse.engine.project.domain.model.Camera;
 import com.sitepulse.engine.project.domain.model.Project;
 import com.sitepulse.engine.snapshot.application.result.CameraSnapshotProfile;
 import com.sitepulse.engine.snapshot.application.result.CameraSnapshotSourceDecision;
+import com.sitepulse.engine.snapshot.application.port.CameraSnapshotProfileStore;
 import com.sitepulse.engine.snapshot.application.service.CameraSnapshotProfileService;
 import com.sitepulse.engine.snapshot.application.service.SnapshotTimezoneResolver;
+import com.sitepulse.engine.snapshot.domain.port.SnapshotSourceImageReadModel;
 import java.lang.reflect.Proxy;
 import java.time.Clock;
 import java.time.Instant;
@@ -74,17 +75,23 @@ class ResolveCameraSnapshotSourceUseCaseTest {
                 OffsetDateTime.of(2026, 4, 1, 0, 0, 0, 0, ZoneOffset.UTC));
     }
 
-    private static ImageEntity imageEntity(int id) {
-        return ImageEntity.builder()
-                .id(id)
-                .bucket("bucket")
-                .key("source." + ImageFormat.JPEG.getCanonicalExtension())
-                .capturedAt(OffsetDateTime.of(2026, 4, 15, 11, 0, 0, 0, ZoneOffset.UTC))
-                .build();
+    private static StoredImage imageEntity(int id) {
+        return new StoredImage(
+                id,
+                "bucket",
+                "source." + ImageFormat.JPEG.getCanonicalExtension(),
+                OffsetDateTime.of(2026, 4, 15, 11, 0, 0, 0, ZoneOffset.UTC),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
     }
 
     private static CameraSnapshotProfileService profileService() {
-        return new CameraSnapshotProfileService(null, null, null) {
+        return new CameraSnapshotProfileService(null, null) {
             @Override
             public CameraSnapshotProfile getOrCreate(Integer cameraId) {
                 return new CameraSnapshotProfile(cameraId, 1920, 75, ImageFormat.WEBP, LocalTime.of(17, 0));
@@ -94,20 +101,20 @@ class ResolveCameraSnapshotSourceUseCaseTest {
 
     private static final class RecordingImageRepository {
 
-        private final List<ImageEntity> latest;
-        private final List<ImageEntity> representative;
+        private final List<StoredImage> latest;
+        private final List<StoredImage> representative;
         private boolean latestCalled;
         private boolean representativeCalled;
 
-        private RecordingImageRepository(List<ImageEntity> latest, List<ImageEntity> representative) {
+        private RecordingImageRepository(List<StoredImage> latest, List<StoredImage> representative) {
             this.latest = latest;
             this.representative = representative;
         }
 
-        private ImageRepository proxy() {
-            return (ImageRepository) Proxy.newProxyInstance(
-                    ImageRepository.class.getClassLoader(),
-                    new Class<?>[] {ImageRepository.class},
+        private SnapshotSourceImageReadModel proxy() {
+            return (SnapshotSourceImageReadModel) Proxy.newProxyInstance(
+                    SnapshotSourceImageReadModel.class.getClassLoader(),
+                    new Class<?>[] {SnapshotSourceImageReadModel.class},
                     (proxy, method, args) -> switch (method.getName()) {
                         case "findLatestSnapshotCandidatesByCameraId" -> {
                             latestCalled = true;

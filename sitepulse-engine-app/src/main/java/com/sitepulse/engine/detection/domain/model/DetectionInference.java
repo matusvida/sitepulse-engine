@@ -7,6 +7,7 @@ public record DetectionInference(
         Integer imageWidth,
         Integer imageHeight,
         Double inferenceMs,
+        String weatherNote,
         List<RawDetection> rawDetections
 ) {
 }

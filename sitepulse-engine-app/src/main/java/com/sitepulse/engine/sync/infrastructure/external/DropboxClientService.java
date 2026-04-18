@@ -2,7 +2,7 @@ package com.sitepulse.engine.sync.infrastructure.external;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sitepulse.engine.common.domain.model.ImageFormat;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
 import com.sitepulse.engine.common.exception.ConfigurationException;
 import com.sitepulse.engine.common.exception.ExternalServiceException;
 import com.sitepulse.engine.config.SitePulseProperties;

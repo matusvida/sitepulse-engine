@@ -134,6 +134,7 @@ Storage layout conventions:
 - Use Lombok, but on entities keep `@ToString` and `@EqualsAndHashCode` limited to relevant fields only
 - Keep the YOLO service narrow: inference in, detections out
 - Keep Spring controllers thin
+- Do not hardcode schema-backed taxonomy values or internal evidence-summary keys/tags/prefixes in production code. If values are stable bounded concepts, model them as enums or typed value objects. If values are owned by database taxonomy, resolve them through the catalog/repository layer instead of scattering string literals.
 
 ## Adding New Features
 

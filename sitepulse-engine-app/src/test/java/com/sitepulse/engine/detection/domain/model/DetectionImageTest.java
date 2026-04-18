@@ -1,5 +1,6 @@
 package com.sitepulse.engine.detection.domain.model;
 
+import com.sitepulse.engine.detection.domain.enums.ImageStatus;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;

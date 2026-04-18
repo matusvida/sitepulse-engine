@@ -1,9 +1,8 @@
 package com.sitepulse.engine.detection.infrastructure.persistence;
 
-import com.sitepulse.engine.detection.domain.model.ImageStatus;
+import com.sitepulse.engine.detection.domain.enums.ImageStatus;
 import java.sql.Date;
 import java.time.OffsetDateTime;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;

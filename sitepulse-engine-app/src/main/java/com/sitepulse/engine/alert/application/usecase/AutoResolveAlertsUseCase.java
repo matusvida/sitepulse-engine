@@ -1,7 +1,7 @@
 package com.sitepulse.engine.alert.application.usecase;
 
 import com.sitepulse.engine.alert.domain.model.Alert;
-import com.sitepulse.engine.alert.domain.model.AlertStatus;
+import com.sitepulse.engine.alert.domain.enums.AlertStatus;
 import com.sitepulse.engine.alert.domain.port.AlertCatalogRepository;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;

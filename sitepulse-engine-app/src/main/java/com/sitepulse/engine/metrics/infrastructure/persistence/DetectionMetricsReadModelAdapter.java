@@ -1,6 +1,6 @@
 package com.sitepulse.engine.metrics.infrastructure.persistence;
 
-import com.sitepulse.engine.detection.domain.model.ImageStatus;
+import com.sitepulse.engine.detection.domain.enums.ImageStatus;
 import com.sitepulse.engine.metrics.domain.model.ActivityHeatmapPoint;
 import com.sitepulse.engine.metrics.domain.model.DetectionActivitySample;
 import com.sitepulse.engine.metrics.domain.port.DetectionMetricsReadModel;
@@ -8,7 +8,9 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 @RequiredArgsConstructor
 public class DetectionMetricsReadModelAdapter implements DetectionMetricsReadModel {
+
+    private static final String PROJECT_ID_PARAM = "projectId";
+    private static final String STATUS_PARAM = "status";
 
     private final EntityManager entityManager;
 
@@ -31,8 +36,8 @@ public class DetectionMetricsReadModelAdapter implements DetectionMetricsReadMod
                   AND DATE(captured_at) >= :cutoff
                 ORDER BY DATE(captured_at)
                 """);
-        query.setParameter("projectId", projectId);
-        query.setParameter("status", ImageStatus.DONE.name());
+        query.setParameter(PROJECT_ID_PARAM, projectId);
+        query.setParameter(STATUS_PARAM, ImageStatus.DONE.name());
         query.setParameter("cutoff", cutoff);
         @SuppressWarnings("unchecked")
         List<Date> result = query.getResultList();
@@ -47,7 +52,7 @@ public class DetectionMetricsReadModelAdapter implements DetectionMetricsReadMod
                 WHERE project_id = :projectId AND date >= :since
                 ORDER BY 1
                 """);
-        query.setParameter("projectId", projectId);
+        query.setParameter(PROJECT_ID_PARAM, projectId);
         query.setParameter("since", sinceDate);
         @SuppressWarnings("unchecked")
         List<Date> rows = query.getResultList();
@@ -69,16 +74,16 @@ public class DetectionMetricsReadModelAdapter implements DetectionMetricsReadMod
                   AND DATE(i.captured_at) = :targetDate
                   AND i.status = :status
                 """);
-        query.setParameter("projectId", projectId);
+        query.setParameter(PROJECT_ID_PARAM, projectId);
         query.setParameter("targetDate", targetDate);
-        query.setParameter("status", ImageStatus.DONE.name());
+        query.setParameter(STATUS_PARAM, ImageStatus.DONE.name());
         @SuppressWarnings("unchecked")
         List<Object[]> rows = query.getResultList();
         return rows.stream()
                 .map(row -> new DetectionActivitySample(
                         (String) row[0],
                         ((Number) row[1]).intValue(),
-                        ((Timestamp) row[2]).toInstant().atOffset(ZoneOffset.UTC),
+                        toCapturedAt(row[2]),
                         targetDate
                 ))
                 .toList();
@@ -96,7 +101,7 @@ public class DetectionMetricsReadModelAdapter implements DetectionMetricsReadMod
                 GROUP BY dow, hr
                 ORDER BY dow, hr
                 """);
-        query.setParameter("projectId", projectId);
+        query.setParameter(PROJECT_ID_PARAM, projectId);
         @SuppressWarnings("unchecked")
         List<Object[]> rows = query.getResultList();
         return rows.stream()
@@ -106,5 +111,18 @@ public class DetectionMetricsReadModelAdapter implements DetectionMetricsReadMod
                         ((Number) row[2]).intValue()
                 ))
                 .toList();
+    }
+
+    private OffsetDateTime toCapturedAt(Object value) {
+        if (value instanceof OffsetDateTime offsetDateTime) {
+            return offsetDateTime;
+        }
+        if (value instanceof Instant instant) {
+            return instant.atOffset(ZoneOffset.UTC);
+        }
+        if (value instanceof Timestamp timestamp) {
+            return timestamp.toInstant().atOffset(ZoneOffset.UTC);
+        }
+        throw new IllegalStateException("Unsupported captured_at type: " + (value == null ? "null" : value.getClass().getName()));
     }
 }

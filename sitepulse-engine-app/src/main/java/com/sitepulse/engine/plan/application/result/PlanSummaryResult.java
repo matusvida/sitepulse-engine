@@ -1,6 +1,6 @@
 package com.sitepulse.engine.plan.application.result;
 
-import com.sitepulse.engine.plan.domain.model.PlanStatus;
+import com.sitepulse.engine.plan.domain.enums.PlanStatus;
 import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.AllArgsConstructor;

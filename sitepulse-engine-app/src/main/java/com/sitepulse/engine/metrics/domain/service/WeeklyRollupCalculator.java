@@ -1,7 +1,7 @@
 package com.sitepulse.engine.metrics.domain.service;
 
 import com.sitepulse.engine.metrics.domain.model.DailyMetric;
-import com.sitepulse.engine.metrics.domain.model.RiskLevel;
+import com.sitepulse.engine.metrics.domain.enums.RiskLevel;
 import com.sitepulse.engine.metrics.domain.policy.RiskClassificationPolicy;
 import java.time.DayOfWeek;
 import java.time.temporal.TemporalAdjusters;
@@ -37,7 +37,7 @@ public class WeeklyRollupCalculator {
                 .max()
                 .orElse(1.0);
 
-        double activityIndex = Math.min(100.0, maxActivity == 0 ? 0 : (totalActivity / maxActivity) * 100.0);
+        double activityIndex = Math.clamp(maxActivity == 0 ? 0 : (totalActivity / maxActivity) * 100.0, 0.0, 100.0);
         RiskLevel riskLevel = riskPolicy.classify(activityIndex, rollingAverageActivity);
 
         return new WeeklyRollup(progressDelta, activityIndex, totalHours, riskLevel);

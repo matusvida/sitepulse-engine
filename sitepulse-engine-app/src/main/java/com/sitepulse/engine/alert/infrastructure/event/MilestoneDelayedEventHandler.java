@@ -2,7 +2,7 @@ package com.sitepulse.engine.alert.infrastructure.event;
 
 import com.sitepulse.engine.alert.application.command.CreateAlertCommand;
 import com.sitepulse.engine.alert.application.usecase.CreateAlertUseCase;
-import com.sitepulse.engine.alert.domain.model.AlertSeverity;
+import com.sitepulse.engine.alert.domain.enums.AlertSeverity;
 import com.sitepulse.engine.plan.domain.event.MilestoneDelayedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;

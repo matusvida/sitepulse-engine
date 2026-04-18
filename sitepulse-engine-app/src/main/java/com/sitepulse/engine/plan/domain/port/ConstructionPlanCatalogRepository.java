@@ -2,7 +2,7 @@ package com.sitepulse.engine.plan.domain.port;
 
 import com.sitepulse.engine.plan.domain.model.ConstructionPlan;
 import com.sitepulse.engine.plan.domain.model.PlanMilestone;
-import com.sitepulse.engine.plan.domain.model.PlanStatus;
+import com.sitepulse.engine.plan.domain.enums.PlanStatus;
 import java.util.List;
 import java.util.Optional;
 

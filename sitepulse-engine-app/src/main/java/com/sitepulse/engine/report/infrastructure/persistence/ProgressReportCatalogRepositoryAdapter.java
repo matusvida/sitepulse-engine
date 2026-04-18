@@ -21,11 +21,16 @@ public class ProgressReportCatalogRepositoryAdapter implements ProgressReportCat
                 : progressReportRepository.findById(report.getId()).orElseGet(ProgressReportEntity::new);
         entity.setProjectId(report.getProjectId());
         entity.setReportType(report.getReportType());
+        entity.setGenerationOrigin(report.getGenerationOrigin());
+        entity.setPeriodKey(report.getPeriodKey());
+        entity.setConfidenceLevel(report.getConfidenceLevel());
         entity.setContentMd(report.getContentMd());
+        entity.setHeadline(report.getHeadline());
         entity.setSummary(report.getSummary());
         entity.setDateRangeStart(report.getDateRangeStart());
         entity.setDateRangeEnd(report.getDateRangeEnd());
         entity.setImageCount(report.getImageCount());
+        entity.setEvidenceImageCount(report.getEvidenceImageCount());
         entity.setModelUsed(report.getModelUsed());
         entity.setCreatedAt(report.getCreatedAt());
         return toDomain(progressReportRepository.save(entity));
@@ -44,16 +49,26 @@ public class ProgressReportCatalogRepositoryAdapter implements ProgressReportCat
         return progressReportRepository.findByIdAndProjectId(reportId, projectId).map(this::toDomain);
     }
 
+    @Override
+    public Optional<ProgressReport> findByProjectAndPeriodKey(Integer projectId, String periodKey) {
+        return progressReportRepository.findByProjectIdAndPeriodKey(projectId, periodKey).map(this::toDomain);
+    }
+
     private ProgressReport toDomain(ProgressReportEntity entity) {
         return ProgressReport.restore(
                 entity.getId(),
                 entity.getProjectId(),
                 entity.getReportType(),
+                entity.getGenerationOrigin(),
+                entity.getPeriodKey(),
+                entity.getConfidenceLevel(),
                 entity.getContentMd(),
+                entity.getHeadline(),
                 entity.getSummary(),
                 entity.getDateRangeStart(),
                 entity.getDateRangeEnd(),
                 entity.getImageCount(),
+                entity.getEvidenceImageCount(),
                 entity.getModelUsed(),
                 entity.getCreatedAt()
         );

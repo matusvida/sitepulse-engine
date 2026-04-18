@@ -1,5 +1,7 @@
 package com.sitepulse.engine.alert.domain.model;
 
+import com.sitepulse.engine.alert.domain.enums.AlertSeverity;
+import com.sitepulse.engine.alert.domain.enums.AlertStatus;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;

@@ -1,6 +1,6 @@
 package com.sitepulse.engine.plan.domain.port;
 
-import com.sitepulse.engine.plan.domain.model.MilestoneStatus;
+import com.sitepulse.engine.plan.domain.enums.MilestoneStatus;
 import com.sitepulse.engine.plan.domain.model.PlanMilestone;
 import java.util.List;
 import java.util.Optional;

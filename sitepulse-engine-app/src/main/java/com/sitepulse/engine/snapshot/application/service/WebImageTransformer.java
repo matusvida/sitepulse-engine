@@ -1,6 +1,6 @@
 package com.sitepulse.engine.snapshot.application.service;
 
-import com.sitepulse.engine.common.domain.model.ImageFormat;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
 import com.sitepulse.engine.common.exception.ProcessingException;
 import com.sitepulse.engine.snapshot.application.result.CameraSnapshotProfile;
 import java.awt.Graphics2D;
@@ -9,6 +9,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -82,9 +83,32 @@ public class WebImageTransformer {
     }
 
     private float normalizeQuality(int quality) {
-        return Math.max(0.0f, Math.min(1.0f, quality / 100.0f));
+        return Math.clamp(quality / 100.0f, 0.0f, 1.0f);
     }
 
     public record TransformedImage(byte[] bytes, String mediaType) {
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof TransformedImage(byte[] bytes1, String type))) {
+                return false;
+            }
+            return Arrays.equals(bytes, bytes1) && mediaType.equals(type);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = Arrays.hashCode(bytes);
+            result = 31 * result + mediaType.hashCode();
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "TransformedImage[bytes=%s, mediaType=%s]".formatted(Arrays.toString(bytes), mediaType);
+        }
     }
 }

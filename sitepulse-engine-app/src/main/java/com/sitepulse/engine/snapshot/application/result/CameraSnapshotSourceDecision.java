@@ -1,10 +1,10 @@
 package com.sitepulse.engine.snapshot.application.result;
 
-import com.sitepulse.engine.detection.infrastructure.persistence.ImageEntity;
+import com.sitepulse.engine.detection.domain.model.StoredImage;
 import java.util.List;
 
 public record CameraSnapshotSourceDecision(
-        List<ImageEntity> sourceImages,
+        List<StoredImage> sourceImages,
         boolean frozen
 ) {
 }

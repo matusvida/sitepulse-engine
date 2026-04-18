@@ -1,6 +1,6 @@
 package com.sitepulse.engine.visualization.application.usecase;
 
-import com.sitepulse.engine.common.domain.model.ImageFormat;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
 import com.sitepulse.engine.common.domain.port.ObjectStorage;
 import com.sitepulse.engine.common.exception.SitePulseException;
 import com.sitepulse.engine.detection.domain.model.DetectedObject;

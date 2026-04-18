@@ -1,6 +1,6 @@
 package com.sitepulse.engine.metrics.infrastructure.persistence;
 
-import com.sitepulse.engine.metrics.domain.model.RiskLevel;
+import com.sitepulse.engine.metrics.domain.enums.RiskLevel;
 import com.sitepulse.engine.metrics.domain.model.WeeklyMetric;
 import com.sitepulse.engine.metrics.domain.port.WeeklyMetricCatalogRepository;
 import java.time.LocalDate;

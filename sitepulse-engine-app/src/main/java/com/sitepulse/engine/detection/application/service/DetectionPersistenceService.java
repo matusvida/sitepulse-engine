@@ -1,5 +1,6 @@
 package com.sitepulse.engine.detection.application.service;
 
+import com.sitepulse.engine.detection.application.port.TrackAssignmentService;
 import com.sitepulse.engine.detection.domain.model.DetectedObject;
 import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.detection.domain.model.DetectionOutcome;
@@ -16,10 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class DetectionPersistenceService {
 
-    private final DetectionTrackingService detectionTrackingService;
+    private final TrackAssignmentService detectionTrackingService;
     private final DetectionRecordRepository detectionRecordRepository;
     private final DetectionImageRepository detectionImageRepository;
     private final DetectionAnalysisRunService detectionAnalysisRunService;
+    private final ImageEvidenceScoringService imageEvidenceScoringService;
 
     @Transactional
     public List<DetectedObject> persistSuccess(
@@ -29,7 +31,7 @@ public class DetectionPersistenceService {
     ) {
         List<DetectedObject> finalDetections = outcome.detections();
         if (!outcome.skipped()) {
-            finalDetections = detectionTrackingService.assignTracks(image, outcome.detections(), execution.provider());
+            finalDetections = detectionTrackingService.assignTracks(image, outcome.detections());
             detectionRecordRepository.replaceDetections(
                     image.getId(),
                     image.getProjectId(),
@@ -38,6 +40,17 @@ public class DetectionPersistenceService {
                     finalDetections
             );
         }
+        var previousImage = detectionImageRepository.findPreviousDone(image).orElse(null);
+        var previousDetections = previousImage == null ? List.<DetectedObject>of() : detectionRecordRepository.findDetections(previousImage.getId());
+        ImageEvidenceFeatures features = imageEvidenceScoringService.score(image, outcome, finalDetections, previousImage, previousDetections);
+        image.applyAnalysisMetadata(
+                features.weatherNote(),
+                features.activityScore(),
+                features.changeScore(),
+                features.qualityScore(),
+                features.overallScore(),
+                features.summaryJson()
+        );
         image.markDone(OffsetDateTime.now(ZoneOffset.UTC));
         detectionImageRepository.save(image);
         detectionAnalysisRunService.completeSuccess(

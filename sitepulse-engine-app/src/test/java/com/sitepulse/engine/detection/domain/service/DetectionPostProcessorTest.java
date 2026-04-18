@@ -1,7 +1,7 @@
 package com.sitepulse.engine.detection.domain.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sitepulse.engine.common.domain.model.ImageFormat;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
 import com.sitepulse.engine.config.SitePulseProperties;
 import com.sitepulse.engine.detection.domain.model.CameraRoiSettings;
 import com.sitepulse.engine.detection.domain.model.DetectionInference;
@@ -38,6 +38,7 @@ class DetectionPostProcessorTest {
                 100,
                 100,
                 15.0,
+                "overcast",
                 List.of(
                         new RawDetection(1, "worker", 0.95, List.of(10.0, 10.0, 20.0, 20.0), null, "yellow", "inside roi"),
                         new RawDetection(1, "worker", 0.95, List.of(70.0, 70.0, 80.0, 80.0), null, "orange", "outside roi")
@@ -49,6 +50,7 @@ class DetectionPostProcessorTest {
         assertEquals(1, outcome.detections().size());
         assertEquals(List.of(10.0, 10.0, 20.0, 20.0), outcome.detections().getFirst().bboxXyxy());
         assertEquals(Boolean.TRUE, outcome.detections().getFirst().inRoi());
+        assertEquals("overcast", outcome.weatherNote());
         assertTrue(outcome.warnings().contains("1 detections outside ROI"));
     }
 

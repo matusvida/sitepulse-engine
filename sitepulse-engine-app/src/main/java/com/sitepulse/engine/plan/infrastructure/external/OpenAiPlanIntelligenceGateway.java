@@ -2,7 +2,7 @@ package com.sitepulse.engine.plan.infrastructure.external;
 
 import com.sitepulse.engine.common.infrastructure.external.openai.OpenAiService;
 import com.sitepulse.engine.plan.domain.model.MilestoneAssessment;
-import com.sitepulse.engine.plan.domain.model.MilestoneStatus;
+import com.sitepulse.engine.plan.domain.enums.MilestoneStatus;
 import com.sitepulse.engine.plan.domain.model.ParsedMilestone;
 import com.sitepulse.engine.plan.domain.model.PlanMilestone;
 import com.sitepulse.engine.plan.domain.port.PlanIntelligenceGateway;

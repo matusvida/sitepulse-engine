@@ -1,11 +1,12 @@
 package com.sitepulse.engine.detection.infrastructure.persistence;
 
 import com.sitepulse.engine.common.util.JsonUtils;
-import com.sitepulse.engine.detection.application.service.DetectionClassCatalog;
 import com.sitepulse.engine.detection.domain.model.DetectedObject;
-import com.sitepulse.engine.detection.domain.port.ProcessedImageReadModel;
-import com.sitepulse.engine.detection.domain.model.ImageStatus;
+import com.sitepulse.engine.detection.domain.model.DetectionClassDefinition;
+import com.sitepulse.engine.detection.domain.enums.ImageStatus;
 import com.sitepulse.engine.detection.domain.model.StoredImage;
+import com.sitepulse.engine.detection.domain.port.DetectionClassCatalog;
+import com.sitepulse.engine.detection.domain.port.ProcessedImageReadModel;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +40,27 @@ public class ProcessedImageReadModelAdapter implements ProcessedImageReadModel {
     }
 
     @Override
+    public Optional<StoredImage> findPreviousDoneImage(Integer projectId, Integer cameraId, OffsetDateTime capturedAt, Integer imageId) {
+        Optional<ImageEntity> previous;
+        if (cameraId != null) {
+            if (capturedAt != null) {
+                previous = imageRepository.findPreviousByCameraCapturedAt(projectId, cameraId, ImageStatus.DONE.name(), capturedAt);
+            } else if (imageId != null) {
+                previous = imageRepository.findPreviousByCameraId(projectId, cameraId, ImageStatus.DONE.name(), imageId);
+            } else {
+                previous = Optional.empty();
+            }
+        } else if (capturedAt != null) {
+            previous = imageRepository.findPreviousByProjectCapturedAt(projectId, ImageStatus.DONE.name(), capturedAt);
+        } else if (imageId != null) {
+            previous = imageRepository.findPreviousByProjectId(projectId, ImageStatus.DONE.name(), imageId);
+        } else {
+            previous = Optional.empty();
+        }
+        return previous.map(this::toStoredImage);
+    }
+
+    @Override
     public List<StoredImage> findDoneInRange(Integer projectId, OffsetDateTime from, OffsetDateTime to) {
         return imageRepository.findDoneInRange(projectId, from, to).stream().map(this::toStoredImage).toList();
     }
@@ -60,13 +82,19 @@ public class ProcessedImageReadModelAdapter implements ProcessedImageReadModel {
                 imageEntity.getId(),
                 imageEntity.getBucket(),
                 imageEntity.getKey(),
-                imageEntity.getCapturedAt()
+                imageEntity.getCapturedAt(),
+                imageEntity.getWeatherNote(),
+                imageEntity.getEvidenceActivityScore(),
+                imageEntity.getEvidenceChangeScore(),
+                imageEntity.getEvidenceQualityScore(),
+                imageEntity.getEvidenceOverallScore(),
+                imageEntity.getEvidenceSummary()
         );
     }
 
     private DetectedObject toDetectedObject(DetectionEntity detectionEntity) {
         String className = detectionClassCatalog.findById(detectionEntity.getClassId())
-                .map(DetectionClassEntity::getClassName)
+                .map(DetectionClassDefinition::className)
                 .orElse("unknown");
         return new DetectedObject(
                 detectionEntity.getClassId(),

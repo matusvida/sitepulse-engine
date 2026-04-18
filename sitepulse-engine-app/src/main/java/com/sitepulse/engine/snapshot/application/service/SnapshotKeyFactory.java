@@ -1,6 +1,6 @@
 package com.sitepulse.engine.snapshot.application.service;
 
-import com.sitepulse.engine.common.domain.model.ImageFormat;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
 import com.sitepulse.engine.project.domain.model.Camera;
 import com.sitepulse.engine.project.domain.model.Project;
 import java.time.LocalDate;

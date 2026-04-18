@@ -16,4 +16,10 @@ public class StoredImage {
     private final String bucket;
     private final String key;
     private final OffsetDateTime capturedAt;
+    private final String weatherNote;
+    private final Double evidenceActivityScore;
+    private final Double evidenceChangeScore;
+    private final Double evidenceQualityScore;
+    private final Double evidenceOverallScore;
+    private final String evidenceSummary;
 }

@@ -39,8 +39,20 @@ public class ProgressReportEntity {
     @Column(name = "report_type", nullable = false, length = 32)
     private String reportType;
 
+    @Column(name = "generation_origin", nullable = false, length = 16)
+    private String generationOrigin;
+
+    @Column(name = "period_key", length = 64)
+    private String periodKey;
+
+    @Column(name = "confidence_level", nullable = false, length = 16)
+    private String confidenceLevel;
+
     @Column(name = "content_md", columnDefinition = "text")
     private String contentMd;
+
+    @Column(length = 255)
+    private String headline;
 
     @Column(columnDefinition = "text")
     private String summary;
@@ -53,6 +65,9 @@ public class ProgressReportEntity {
 
     @Column(name = "image_count")
     private Integer imageCount;
+
+    @Column(name = "evidence_image_count")
+    private Integer evidenceImageCount;
 
     @Column(name = "model_used", length = 128)
     private String modelUsed;

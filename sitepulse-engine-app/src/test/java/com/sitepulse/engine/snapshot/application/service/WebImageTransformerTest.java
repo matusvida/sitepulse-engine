@@ -1,6 +1,6 @@
 package com.sitepulse.engine.snapshot.application.service;
 
-import com.sitepulse.engine.common.domain.model.ImageFormat;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
 import com.sitepulse.engine.snapshot.application.result.CameraSnapshotProfile;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;

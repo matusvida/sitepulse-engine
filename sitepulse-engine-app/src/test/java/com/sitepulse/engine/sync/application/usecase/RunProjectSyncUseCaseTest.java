@@ -12,7 +12,7 @@ import com.sitepulse.engine.snapshot.application.usecase.RefreshCameraDailySnaps
 import com.sitepulse.engine.sync.domain.model.ImageImport;
 import com.sitepulse.engine.sync.domain.model.SourceImageFile;
 import com.sitepulse.engine.sync.domain.model.SyncJob;
-import com.sitepulse.engine.sync.domain.model.SyncJobStatus;
+import com.sitepulse.engine.sync.domain.enums.SyncJobStatus;
 import com.sitepulse.engine.sync.domain.port.ImageCatalogRepository;
 import com.sitepulse.engine.sync.domain.port.SyncJobRepository;
 import com.sitepulse.engine.sync.domain.port.SyncSource;
@@ -217,12 +217,18 @@ class RunProjectSyncUseCaseTest {
                     imports.size(),
                     imageImport.bucket(),
                     imageImport.key(),
-                    com.sitepulse.engine.detection.domain.model.ImageStatus.NEW,
+                    com.sitepulse.engine.detection.domain.enums.ImageStatus.NEW,
                     imageImport.projectId(),
                     11,
                     imageImport.capturedAt(),
                     NOW,
-                    NOW
+                    NOW,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
             );
             return new SaveImportedImageResult(true, Optional.of(image));
         }

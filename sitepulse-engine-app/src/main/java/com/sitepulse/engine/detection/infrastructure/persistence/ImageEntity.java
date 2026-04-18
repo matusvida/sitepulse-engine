@@ -1,6 +1,6 @@
 package com.sitepulse.engine.detection.infrastructure.persistence;
 
-import com.sitepulse.engine.detection.domain.model.ImageStatus;
+import com.sitepulse.engine.detection.domain.enums.ImageStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -18,6 +18,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.ColumnTransformer;
 
 @Entity
 @Table(name = "images")
@@ -61,4 +62,23 @@ public class ImageEntity {
 
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
+
+    @Column(name = "weather_note", length = 64)
+    private String weatherNote;
+
+    @Column(name = "evidence_activity_score")
+    private Double evidenceActivityScore;
+
+    @Column(name = "evidence_change_score")
+    private Double evidenceChangeScore;
+
+    @Column(name = "evidence_quality_score")
+    private Double evidenceQualityScore;
+
+    @Column(name = "evidence_overall_score")
+    private Double evidenceOverallScore;
+
+    @Column(name = "evidence_summary", columnDefinition = "jsonb")
+    @ColumnTransformer(write = "?::jsonb")
+    private String evidenceSummary;
 }

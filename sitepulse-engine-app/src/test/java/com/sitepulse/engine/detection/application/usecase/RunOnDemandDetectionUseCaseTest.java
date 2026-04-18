@@ -11,7 +11,7 @@ import com.sitepulse.engine.detection.domain.model.DetectedObject;
 import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.detection.domain.model.DetectionInference;
 import com.sitepulse.engine.detection.domain.model.DetectionOutcome;
-import com.sitepulse.engine.detection.domain.model.DetectionProvider;
+import com.sitepulse.engine.detection.domain.enums.DetectionProvider;
 import com.sitepulse.engine.detection.domain.model.RawDetection;
 import com.sitepulse.engine.detection.domain.port.CameraLookup;
 import com.sitepulse.engine.detection.domain.port.DetectionImageRepository;
@@ -66,13 +66,13 @@ class RunOnDemandDetectionUseCaseTest {
             public DetectionExecutionResult execute(DetectionImage image, byte[] imageBytes, CameraRoiSettings cameraSettings) {
                 return new DetectionExecutionResult(
                         DetectionProvider.OPENAI,
-                        new DetectionInference("model", 1920, 1080, 12.5, List.of()),
+                        new DetectionInference("model", 1920, 1080, 12.5, "unclear", List.of()),
                         101,
                         null
                 );
             }
         };
-        private final DetectionPersistenceService detectionPersistenceService = new DetectionPersistenceService(null, null, null, null) {
+        private final DetectionPersistenceService detectionPersistenceService = new DetectionPersistenceService(null, null, null, null, null) {
             @Override
             public List<DetectedObject> persistSuccess(DetectionImage image, DetectionOutcome outcome, DetectionExecutionResult execution) {
                 return outcome.detections();
@@ -90,6 +90,11 @@ class RunOnDemandDetectionUseCaseTest {
 
             @Override
             public Optional<DetectionImage> findById(Integer imageId) {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<DetectionImage> findPreviousDone(DetectionImage image) {
                 return Optional.empty();
             }
 
@@ -134,6 +139,7 @@ class RunOnDemandDetectionUseCaseTest {
                         1920,
                         1080,
                         12.5,
+                        "unclear",
                         List.of(),
                         List.of(),
                         false

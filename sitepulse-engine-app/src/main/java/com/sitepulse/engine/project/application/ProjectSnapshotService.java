@@ -1,12 +1,11 @@
 package com.sitepulse.engine.project.application;
 
-import com.sitepulse.engine.common.domain.model.ImageFormat;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
 import com.sitepulse.engine.common.domain.port.ObjectStorage;
 import com.sitepulse.engine.common.exception.ResourceNotFoundException;
 import com.sitepulse.engine.config.SitePulseProperties;
 import com.sitepulse.engine.detection.domain.model.StoredImage;
 import com.sitepulse.engine.detection.domain.port.ProcessedImageReadModel;
-import com.sitepulse.engine.detection.infrastructure.persistence.ImageRepository;
 import com.sitepulse.engine.project.application.result.ProjectSnapshotMetadataResult;
 import com.sitepulse.engine.project.application.result.ProjectSnapshotSelectionResult;
 import com.sitepulse.engine.project.domain.model.Camera;
@@ -14,6 +13,7 @@ import com.sitepulse.engine.project.domain.model.Project;
 import com.sitepulse.engine.snapshot.application.result.CameraSnapshotAsset;
 import com.sitepulse.engine.snapshot.application.usecase.GenerateCameraDailySnapshotUseCase;
 import com.sitepulse.engine.snapshot.application.service.SnapshotTimezoneResolver;
+import com.sitepulse.engine.snapshot.domain.port.SnapshotSourceImageReadModel;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -30,7 +30,7 @@ public class ProjectSnapshotService {
     private final ProjectSnapshotCameraResolver cameraResolver;
     private final ProcessedImageReadModel processedImageReadModel;
     private final GenerateCameraDailySnapshotUseCase generateCameraDailySnapshotUseCase;
-    private final ImageRepository imageRepository;
+    private final SnapshotSourceImageReadModel snapshotSourceImageReadModel;
     private final SnapshotTimezoneResolver timezoneResolver;
     private final ObjectStorage objectStorage;
     private final SitePulseProperties properties;
@@ -46,9 +46,7 @@ public class ProjectSnapshotService {
         }
         Project project = projectLookupService.requireProject(projectId);
         Camera camera = cameraResolver.resolve(projectId);
-        return imageRepository.findAvailableSnapshotDatesByCameraId(camera.getId(), timezoneResolver.resolve(project).getId()).stream()
-                .map(java.sql.Date::toLocalDate)
-                .toList();
+        return snapshotSourceImageReadModel.findAvailableSnapshotDatesByCameraId(camera.getId(), timezoneResolver.resolve(project).getId());
     }
 
     public List<ProjectSnapshotMetadataResult> list(Integer projectId) {

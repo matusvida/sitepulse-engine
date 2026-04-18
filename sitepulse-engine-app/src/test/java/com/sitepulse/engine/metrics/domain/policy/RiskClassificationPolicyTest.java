@@ -1,6 +1,6 @@
 package com.sitepulse.engine.metrics.domain.policy;
 
-import com.sitepulse.engine.metrics.domain.model.RiskLevel;
+import com.sitepulse.engine.metrics.domain.enums.RiskLevel;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

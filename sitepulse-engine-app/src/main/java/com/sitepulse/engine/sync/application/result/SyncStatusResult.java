@@ -1,6 +1,6 @@
 package com.sitepulse.engine.sync.application.result;
 
-import com.sitepulse.engine.sync.domain.model.SyncJobStatus;
+import com.sitepulse.engine.sync.domain.enums.SyncJobStatus;
 import java.time.OffsetDateTime;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;

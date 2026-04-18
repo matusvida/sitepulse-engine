@@ -1,8 +1,8 @@
 package com.sitepulse.engine.alert.infrastructure.persistence;
 
-import com.sitepulse.engine.alert.application.result.AlertResult;
-import com.sitepulse.engine.alert.domain.model.AlertSeverity;
-import com.sitepulse.engine.alert.domain.model.AlertStatus;
+import com.sitepulse.engine.alert.domain.enums.AlertSeverity;
+import com.sitepulse.engine.alert.domain.enums.AlertStatus;
+import com.sitepulse.engine.alert.domain.model.Alert;
 import com.sitepulse.engine.alert.domain.port.AlertReadModel;
 import java.util.List;
 import java.util.stream.Stream;
@@ -16,7 +16,7 @@ public class AlertReadModelAdapter implements AlertReadModel {
     private final AlertRepository alertRepository;
 
     @Override
-    public List<AlertResult> findByProjectFiltered(Integer projectId, String type, String severity, String status) {
+    public List<Alert> findByProjectFiltered(Integer projectId, String type, String severity, String status) {
         Stream<AlertEntity> stream = alertRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream();
         if (type != null && !type.isBlank()) {
             stream = stream.filter(e -> type.equalsIgnoreCase(e.getType()));
@@ -27,11 +27,11 @@ public class AlertReadModelAdapter implements AlertReadModel {
         if (status != null && !status.isBlank()) {
             stream = stream.filter(e -> status.equalsIgnoreCase(e.getStatus()));
         }
-        return stream.map(this::toResult).toList();
+        return stream.map(this::toDomain).toList();
     }
 
-    private AlertResult toResult(AlertEntity entity) {
-        return new AlertResult(
+    private Alert toDomain(AlertEntity entity) {
+        return Alert.restore(
                 entity.getId(),
                 entity.getProjectId(),
                 entity.getType(),

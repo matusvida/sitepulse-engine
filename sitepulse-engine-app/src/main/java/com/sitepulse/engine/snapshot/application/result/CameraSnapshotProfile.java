@@ -1,6 +1,6 @@
 package com.sitepulse.engine.snapshot.application.result;
 
-import com.sitepulse.engine.common.domain.model.ImageFormat;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
 import java.time.LocalTime;
 
 public record CameraSnapshotProfile(

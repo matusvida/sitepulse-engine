@@ -20,7 +20,7 @@ import com.sitepulse.engine.plan.application.usecase.ListPlanMilestonesQuery;
 import com.sitepulse.engine.plan.application.usecase.RunPlanCheckUseCase;
 import com.sitepulse.engine.plan.application.usecase.UpdatePlanMilestoneUseCase;
 import com.sitepulse.engine.plan.application.usecase.UploadConstructionPlanUseCase;
-import com.sitepulse.engine.plan.domain.model.MilestoneStatus;
+import com.sitepulse.engine.plan.domain.enums.MilestoneStatus;
 import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

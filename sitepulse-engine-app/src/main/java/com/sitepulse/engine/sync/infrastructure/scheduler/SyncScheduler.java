@@ -1,6 +1,6 @@
 package com.sitepulse.engine.sync.infrastructure.scheduler;
 
-import com.sitepulse.engine.scheduler.application.JobExecutionGate;
+import com.sitepulse.engine.scheduler.infrastructure.JobExecutionGate;
 import com.sitepulse.engine.sync.application.usecase.RunScheduledSyncUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

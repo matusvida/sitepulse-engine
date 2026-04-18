@@ -6,11 +6,11 @@ import com.sitepulse.engine.detection.domain.model.DetectionContext;
 import com.sitepulse.engine.detection.domain.model.DetectionHealth;
 import com.sitepulse.engine.detection.domain.model.DetectionImage;
 import com.sitepulse.engine.detection.domain.model.DetectionInference;
-import com.sitepulse.engine.detection.domain.model.DetectionProvider;
+import com.sitepulse.engine.detection.domain.model.AiDetectionResult;
+import com.sitepulse.engine.detection.domain.enums.DetectionProvider;
+import com.sitepulse.engine.detection.domain.port.AiDetectionGateway;
 import com.sitepulse.engine.detection.domain.port.CameraLookup;
 import com.sitepulse.engine.detection.domain.port.DetectionGateway;
-import com.sitepulse.engine.detection.infrastructure.external.openai.OpenAiDetectionGateway;
-import com.sitepulse.engine.detection.infrastructure.external.openai.OpenAiDetectionResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,7 +22,7 @@ public class DetectionExecutionService {
 
     private final SitePulseProperties properties;
     private final DetectionGateway yoloDetectionGateway;
-    private final OpenAiDetectionGateway openAiDetectionGateway;
+    private final AiDetectionGateway aiDetectionGateway;
     private final DetectionContextService detectionContextService;
     private final DetectionAnalysisRunService detectionAnalysisRunService;
     private final CameraLookup cameraLookup;
@@ -58,11 +58,11 @@ public class DetectionExecutionService {
                     previousImageId,
                     DetectionProvider.OPENAI.name().toLowerCase(),
                     properties.openaiModel(),
-                    openAiDetectionGateway.promptVersion(),
+                    aiDetectionGateway.promptVersion(),
                     attempt - 1
             );
             try {
-                OpenAiDetectionResult result = openAiDetectionGateway.infer(imageBytes, context, cameraSettings);
+                AiDetectionResult result = aiDetectionGateway.infer(imageBytes, context, cameraSettings);
                 log.info(
                         "OpenAI detection succeeded imageId={} prompt_version={} attempt={} roi_in_prompt={} detections={}",
                         image.getId(),
@@ -78,7 +78,7 @@ public class DetectionExecutionService {
                 log.warn(
                         "OpenAI detection failed imageId={} prompt_version={} attempt={} reason={}",
                         image.getId(),
-                        openAiDetectionGateway.promptVersion(),
+                        aiDetectionGateway.promptVersion(),
                         attempt,
                         failureReason
                 );

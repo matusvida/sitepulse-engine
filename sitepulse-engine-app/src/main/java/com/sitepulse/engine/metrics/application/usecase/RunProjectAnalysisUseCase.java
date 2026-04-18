@@ -3,7 +3,7 @@ package com.sitepulse.engine.metrics.application.usecase;
 import com.sitepulse.engine.alert.application.command.CreateAlertCommand;
 import com.sitepulse.engine.alert.application.usecase.AutoResolveAlertsUseCase;
 import com.sitepulse.engine.alert.application.usecase.CreateAlertUseCase;
-import com.sitepulse.engine.alert.domain.model.AlertSeverity;
+import com.sitepulse.engine.alert.domain.enums.AlertSeverity;
 import com.sitepulse.engine.metrics.application.result.AnalysisRunResult;
 import com.sitepulse.engine.metrics.domain.model.DailyMetric;
 import com.sitepulse.engine.metrics.domain.model.DetectionActivitySample;

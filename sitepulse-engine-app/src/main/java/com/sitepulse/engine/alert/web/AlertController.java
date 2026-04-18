@@ -4,7 +4,7 @@ import com.sitepulse.engine.alert.application.command.UpdateAlertStatusCommand;
 import com.sitepulse.engine.alert.application.result.AlertResult;
 import com.sitepulse.engine.alert.application.usecase.ListProjectAlertsQuery;
 import com.sitepulse.engine.alert.application.usecase.UpdateAlertStatusUseCase;
-import com.sitepulse.engine.alert.domain.model.AlertStatus;
+import com.sitepulse.engine.alert.domain.enums.AlertStatus;
 import com.sitepulse.engine.common.exception.ValidationException;
 import com.sitepulse.engine.http.alert.api.AlertApi;
 import com.sitepulse.engine.http.alert.dto.AlertStatusUpdateRequest;
