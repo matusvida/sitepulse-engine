@@ -1,5 +1,9 @@
 package com.sitepulse.engine.metrics.infrastructure.persistence;
 
+import com.sitepulse.engine.common.util.JsonUtils;
+import com.sitepulse.engine.metrics.domain.enums.DailyActivityStatus;
+import com.sitepulse.engine.metrics.domain.enums.DailyObservationConfidence;
+import com.sitepulse.engine.metrics.domain.enums.DailyWeatherStatus;
 import com.sitepulse.engine.metrics.domain.model.DailyMetric;
 import com.sitepulse.engine.metrics.domain.port.DailyMetricCatalogRepository;
 import java.time.LocalDate;
@@ -13,6 +17,7 @@ import org.springframework.stereotype.Repository;
 public class DailyMetricCatalogRepositoryAdapter implements DailyMetricCatalogRepository {
 
     private final DailyMetricRepository dailyMetricRepository;
+    private final JsonUtils jsonUtils;
 
     @Override
     public Optional<DailyMetric> findByProjectAndDate(Integer projectId, LocalDate date) {
@@ -29,6 +34,12 @@ public class DailyMetricCatalogRepositoryAdapter implements DailyMetricCatalogRe
         entity.setPeopleCount(metric.getPeopleCount());
         entity.setVehicleCount(metric.getVehicleCount());
         entity.setActiveHours(metric.getActiveHours());
+        entity.setActivityStatus(metric.getActivityStatus() == null ? null : metric.getActivityStatus().toPersistenceValue());
+        entity.setActivityConfidence(metric.getActivityConfidence() == null ? null : metric.getActivityConfidence().toPersistenceValue());
+        entity.setWeatherStatus(metric.getWeatherStatus() == null ? null : metric.getWeatherStatus().toPersistenceValue());
+        entity.setWeatherImpacted(metric.getWeatherImpacted());
+        entity.setReasonCodes(jsonUtils.write(metric.getReasonCodes() == null ? List.of() : metric.getReasonCodes()));
+        entity.setSummaryNote(metric.getSummaryNote());
         entity.setCreatedAt(metric.getCreatedAt());
         return toDomain(dailyMetricRepository.save(entity));
     }
@@ -60,6 +71,12 @@ public class DailyMetricCatalogRepositoryAdapter implements DailyMetricCatalogRe
                 entity.getPeopleCount(),
                 entity.getVehicleCount(),
                 entity.getActiveHours(),
+                DailyActivityStatus.fromPersistenceValue(entity.getActivityStatus()),
+                DailyObservationConfidence.fromPersistenceValue(entity.getActivityConfidence()),
+                DailyWeatherStatus.fromPersistenceValue(entity.getWeatherStatus()),
+                Boolean.TRUE.equals(entity.getWeatherImpacted()),
+                entity.getReasonCodes() == null || entity.getReasonCodes().isBlank() ? List.of() : jsonUtils.readStringList(entity.getReasonCodes()),
+                entity.getSummaryNote(),
                 entity.getCreatedAt()
         );
     }

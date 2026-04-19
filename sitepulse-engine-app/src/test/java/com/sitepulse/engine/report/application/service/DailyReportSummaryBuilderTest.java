@@ -5,6 +5,9 @@ import com.sitepulse.engine.common.util.JsonUtils;
 import com.sitepulse.engine.detection.domain.model.DetectedObject;
 import com.sitepulse.engine.detection.domain.model.StoredImage;
 import com.sitepulse.engine.detection.domain.port.ProcessedImageReadModel;
+import com.sitepulse.engine.metrics.domain.enums.DailyActivityStatus;
+import com.sitepulse.engine.metrics.domain.enums.DailyObservationConfidence;
+import com.sitepulse.engine.metrics.domain.enums.DailyWeatherStatus;
 import com.sitepulse.engine.metrics.domain.model.DailyMetric;
 import com.sitepulse.engine.metrics.domain.port.DailyMetricCatalogRepository;
 import com.sitepulse.engine.report.domain.enums.ConfidenceLevel;
@@ -75,7 +78,21 @@ class DailyReportSummaryBuilderTest {
                 new DailyMetricCatalogRepository() {
                     @Override
                     public Optional<DailyMetric> findByProjectAndDate(Integer projectId, LocalDate date) {
-                        return Optional.of(DailyMetric.restore(1, projectId, date, 2, 3, 4.5, ts));
+                        return Optional.of(DailyMetric.restore(
+                                1,
+                                projectId,
+                                date,
+                                2,
+                                3,
+                                4.5,
+                                DailyActivityStatus.ACTIVE,
+                                DailyObservationConfidence.MEDIUM,
+                                DailyWeatherStatus.CLEAR_OR_NORMAL,
+                                false,
+                                List.of("movement_signals_present"),
+                                "activity=active",
+                                ts
+                        ));
                     }
 
                     @Override
@@ -104,6 +121,7 @@ class DailyReportSummaryBuilderTest {
         DailyReportSummary summary = builder.build(1, LocalDate.of(2026, 4, 16), ts.minusHours(1), ts.plusHours(6));
 
         assertEquals(2, summary.imageCount());
+        assertEquals(DailyActivityStatus.ACTIVE, summary.activityStatus());
         assertEquals(WeatherSummary.OVERCAST, summary.weatherSummary());
         assertEquals(ConfidenceLevel.LOW, summary.confidenceLevel());
         assertTrue(summary.dominantClasses().contains("truck"));

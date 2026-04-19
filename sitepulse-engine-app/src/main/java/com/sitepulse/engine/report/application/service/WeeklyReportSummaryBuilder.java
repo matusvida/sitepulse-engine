@@ -1,5 +1,6 @@
 package com.sitepulse.engine.report.application.service;
 
+import com.sitepulse.engine.metrics.domain.enums.DailyActivityStatus;
 import com.sitepulse.engine.metrics.domain.model.WeeklyMetric;
 import com.sitepulse.engine.metrics.domain.port.WeeklyMetricCatalogRepository;
 import com.sitepulse.engine.report.domain.enums.ConfidenceLevel;
@@ -38,7 +39,12 @@ public class WeeklyReportSummaryBuilder {
             dailySummaries.add(dailyReportSummaryBuilder.build(projectId, day, fromByDay.get(day), toByDay.get(day)));
         }
         int imageCount = dailySummaries.stream().mapToInt(DailyReportSummary::imageCount).sum();
-        int activeDays = (int) dailySummaries.stream().filter(summary -> summary.imageCount() > 0).count();
+        int activeDays = (int) dailySummaries.stream().filter(summary -> summary.activityStatus() == DailyActivityStatus.ACTIVE).count();
+        int inactiveDays = (int) dailySummaries.stream().filter(summary -> summary.activityStatus() == DailyActivityStatus.INACTIVE).count();
+        int unknownDays = (int) dailySummaries.stream().filter(summary -> summary.activityStatus() == DailyActivityStatus.UNKNOWN).count();
+        int weatherImpactedDays = (int) dailySummaries.stream()
+                .filter(summary -> summary.contextText().contains("weather_impacted=true"))
+                .count();
         Map<WeatherSummary, Long> weatherCounts = dailySummaries.stream()
                 .filter(summary -> summary.imageCount() > 0)
                 .collect(Collectors.groupingBy(DailyReportSummary::weatherSummary, Collectors.counting()));
@@ -51,7 +57,18 @@ public class WeeklyReportSummaryBuilder {
                 .toList();
         ConfidenceLevel confidence = confidence(activeDays, imageCount, metric != null);
         String context = buildContext(weekStart, dailySummaries, weatherPattern, notableEvents, confidence, metric);
-        return new WeeklyReportSummary(weekStart, imageCount, activeDays, weatherPattern, confidence, notableEvents, context);
+        return new WeeklyReportSummary(
+                weekStart,
+                imageCount,
+                activeDays,
+                inactiveDays,
+                unknownDays,
+                weatherImpactedDays,
+                weatherPattern,
+                confidence,
+                notableEvents,
+                context
+        );
     }
 
     private String buildContext(
@@ -65,7 +82,9 @@ public class WeeklyReportSummaryBuilder {
         StringBuilder builder = new StringBuilder();
         builder.append("### Structured Weekly Summary\n");
         builder.append("- week_start: ").append(weekStart).append('\n');
-        builder.append("- days_with_activity: ").append(dailySummaries.stream().filter(summary -> summary.imageCount() > 0).count()).append('\n');
+        builder.append("- active_days: ").append(dailySummaries.stream().filter(summary -> summary.activityStatus() == DailyActivityStatus.ACTIVE).count()).append('\n');
+        builder.append("- inactive_days: ").append(dailySummaries.stream().filter(summary -> summary.activityStatus() == DailyActivityStatus.INACTIVE).count()).append('\n');
+        builder.append("- unknown_days: ").append(dailySummaries.stream().filter(summary -> summary.activityStatus() == DailyActivityStatus.UNKNOWN).count()).append('\n');
         builder.append("- images_analyzed: ").append(dailySummaries.stream().mapToInt(DailyReportSummary::imageCount).sum()).append('\n');
         builder.append("- weather_pattern: ").append(weatherPattern.toPersistenceValue()).append('\n');
         builder.append("- report_confidence: ").append(confidence.toPersistenceValue()).append('\n');
@@ -81,6 +100,7 @@ public class WeeklyReportSummaryBuilder {
                 .filter(summary -> summary.imageCount() > 0)
                 .forEach(summary -> builder.append("  - ").append(summary.date())
                         .append(": images=").append(summary.imageCount())
+                        .append(", activity=").append(summary.activityStatus().toPersistenceValue())
                         .append(", weather=").append(summary.weatherSummary().toPersistenceValue())
                         .append(", confidence=").append(summary.confidenceLevel().toPersistenceValue())
                         .append('\n'));

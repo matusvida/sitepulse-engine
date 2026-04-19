@@ -20,4 +20,10 @@ public class DailyMetricResult {
     private int peopleCount;
     private int vehicleCount;
     private double activeHours;
+    private String activityStatus;
+    private String activityConfidence;
+    private String weatherStatus;
+    private boolean weatherImpacted;
+    private java.util.List<String> reasonCodes;
+    private String summaryNote;
 }

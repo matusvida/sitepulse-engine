@@ -24,11 +24,44 @@ public class ReportContextProviderAdapter implements ReportContextProvider {
         StringBuilder builder = new StringBuilder();
         builder.append("### Daily Metrics\n");
         List<DailyMetricResult> dailyMetrics = listDailyMetricsQuery.list(projectId, days);
+        int activeDays = 0;
+        int inactiveDays = 0;
+        int unknownDays = 0;
+        int weatherImpactedDays = 0;
+        int rainDays = 0;
+        int snowDays = 0;
         dailyMetrics.forEach(row -> builder.append("- ").append(row.getDate())
                 .append(": people=").append(row.getPeopleCount())
                 .append(", vehicles=").append(row.getVehicleCount())
                 .append(", active_hours=").append(row.getActiveHours())
+                .append(", activity_status=").append(row.getActivityStatus())
+                .append(", weather_status=").append(row.getWeatherStatus())
+                .append(", weather_impacted=").append(row.isWeatherImpacted())
                 .append('\n'));
+        for (DailyMetricResult row : dailyMetrics) {
+            if ("active".equals(row.getActivityStatus())) {
+                activeDays++;
+            } else if ("inactive".equals(row.getActivityStatus())) {
+                inactiveDays++;
+            } else {
+                unknownDays++;
+            }
+            if (row.isWeatherImpacted()) {
+                weatherImpactedDays++;
+            }
+            if ("rain".equals(row.getWeatherStatus())) {
+                rainDays++;
+            } else if ("snow".equals(row.getWeatherStatus())) {
+                snowDays++;
+            }
+        }
+        builder.append("- summary: active_days=").append(activeDays)
+                .append(", inactive_days=").append(inactiveDays)
+                .append(", unknown_days=").append(unknownDays)
+                .append(", weather_impacted_days=").append(weatherImpactedDays)
+                .append(", rain_days=").append(rainDays)
+                .append(", snow_days=").append(snowDays)
+                .append('\n');
 
         builder.append("\n### Weekly Metrics\n");
         List<WeeklyMetricResult> weeklyMetrics = listWeeklyMetricsQuery.list(projectId, 12);

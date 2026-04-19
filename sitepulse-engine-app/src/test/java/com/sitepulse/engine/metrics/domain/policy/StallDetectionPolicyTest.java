@@ -1,5 +1,8 @@
 package com.sitepulse.engine.metrics.domain.policy;
 
+import com.sitepulse.engine.metrics.domain.enums.DailyActivityStatus;
+import com.sitepulse.engine.metrics.domain.enums.DailyObservationConfidence;
+import com.sitepulse.engine.metrics.domain.enums.DailyWeatherStatus;
 import com.sitepulse.engine.metrics.domain.model.DailyMetric;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -16,7 +19,21 @@ class StallDetectionPolicyTest {
     private final StallDetectionPolicy policy = new StallDetectionPolicy();
 
     private DailyMetric metricWithCounts(int day, int people, int vehicles) {
-        return DailyMetric.restore(day, 1, LocalDate.now().minusDays(day), people, vehicles, 0.0, NOW);
+        return DailyMetric.restore(
+                day,
+                1,
+                LocalDate.now().minusDays(day),
+                people,
+                vehicles,
+                0.0,
+                DailyActivityStatus.UNKNOWN,
+                DailyObservationConfidence.LOW,
+                DailyWeatherStatus.UNCLEAR,
+                false,
+                List.of(),
+                null,
+                NOW
+        );
     }
 
     @Test

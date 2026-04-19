@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.ColumnTransformer;
 
 @Entity
 @Table(name = "daily_metrics")
@@ -48,6 +49,25 @@ public class DailyMetricEntity {
 
     @Column(name = "active_hours")
     private Double activeHours;
+
+    @Column(name = "activity_status", length = 16)
+    private String activityStatus;
+
+    @Column(name = "activity_confidence", length = 16)
+    private String activityConfidence;
+
+    @Column(name = "weather_status", length = 24)
+    private String weatherStatus;
+
+    @Column(name = "weather_impacted")
+    private Boolean weatherImpacted;
+
+    @Column(name = "reason_codes", columnDefinition = "jsonb")
+    @ColumnTransformer(write = "?::jsonb")
+    private String reasonCodes;
+
+    @Column(name = "summary_note", length = 512)
+    private String summaryNote;
 
     @Column(name = "created_at")
     private OffsetDateTime createdAt;

@@ -2,6 +2,7 @@ package com.sitepulse.engine.http.metrics.api;
 
 import com.sitepulse.engine.http.common.dto.ActionResponse;
 import com.sitepulse.engine.http.metrics.dto.ActivityHeatmapPointView;
+import com.sitepulse.engine.http.metrics.dto.ActivitySummaryView;
 import com.sitepulse.engine.http.metrics.dto.DailyMetricView;
 import com.sitepulse.engine.http.metrics.dto.MetricsGenerateRequest;
 import com.sitepulse.engine.http.metrics.dto.WeeklyMetricView;
@@ -34,4 +35,8 @@ public interface MetricsApi {
     @Operation(summary = "Get activity heatmap")
     @GetMapping("/projects/{projectId}/activity/heatmap")
     List<ActivityHeatmapPointView> activityHeatmap(@PathVariable Integer projectId);
+
+    @Operation(summary = "Get activity summary")
+    @GetMapping("/projects/{projectId}/activity/summary")
+    ActivitySummaryView activitySummary(@PathVariable Integer projectId, @RequestParam(defaultValue = "28") int days);
 }

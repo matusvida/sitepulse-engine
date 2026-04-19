@@ -4,6 +4,7 @@ import com.sitepulse.engine.common.util.JsonUtils;
 import com.sitepulse.engine.detection.application.enums.ImageEvidenceSummaryField;
 import com.sitepulse.engine.detection.domain.model.StoredImage;
 import com.sitepulse.engine.detection.domain.port.ProcessedImageReadModel;
+import com.sitepulse.engine.metrics.domain.enums.DailyActivityStatus;
 import com.sitepulse.engine.metrics.domain.model.DailyMetric;
 import com.sitepulse.engine.metrics.domain.port.DailyMetricCatalogRepository;
 import com.sitepulse.engine.report.domain.enums.ConfidenceLevel;
@@ -55,10 +56,14 @@ public class DailyReportSummaryBuilder {
         DailyMetric metric = dailyMetricCatalogRepository.findByProjectAndDate(projectId, date).orElse(null);
         ConfidenceLevel confidence = confidence(images.size());
         WeatherSummary weatherSummary = resolveWeatherSummary(weatherCounts);
+        DailyActivityStatus activityStatus = metric == null || metric.getActivityStatus() == null
+                ? DailyActivityStatus.UNKNOWN
+                : metric.getActivityStatus();
         String context = buildContext(date, images.size(), weatherSummary, confidence, dominantClasses, dedupe(notableEvents), metric);
         return new DailyReportSummary(
                 date,
                 images.size(),
+                activityStatus,
                 weatherSummary,
                 confidence,
                 dominantClasses,
@@ -86,6 +91,10 @@ public class DailyReportSummaryBuilder {
             builder.append("- daily_metrics: people=").append(metric.getPeopleCount())
                     .append(", vehicles=").append(metric.getVehicleCount())
                     .append(", active_hours=").append(metric.getActiveHours())
+                    .append(", activity_status=").append(metric.getActivityStatus() == null ? "unknown" : metric.getActivityStatus().toPersistenceValue())
+                    .append(", activity_confidence=").append(metric.getActivityConfidence() == null ? "low" : metric.getActivityConfidence().toPersistenceValue())
+                    .append(", weather_status=").append(metric.getWeatherStatus() == null ? "unclear" : metric.getWeatherStatus().toPersistenceValue())
+                    .append(", weather_impacted=").append(Boolean.TRUE.equals(metric.getWeatherImpacted()))
                     .append('\n');
         }
         if (!dominantClasses.isEmpty()) {

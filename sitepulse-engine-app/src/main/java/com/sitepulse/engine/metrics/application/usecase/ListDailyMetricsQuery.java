@@ -20,7 +20,13 @@ public class ListDailyMetricsQuery {
                         row.getDate(),
                         row.getPeopleCount() == null ? 0 : row.getPeopleCount(),
                         row.getVehicleCount() == null ? 0 : row.getVehicleCount(),
-                        row.getActiveHours() == null ? 0.0 : row.getActiveHours()
+                        row.getActiveHours() == null ? 0.0 : row.getActiveHours(),
+                        row.getActivityStatus() == null ? "unknown" : row.getActivityStatus().toPersistenceValue(),
+                        row.getActivityConfidence() == null ? "low" : row.getActivityConfidence().toPersistenceValue(),
+                        row.getWeatherStatus() == null ? "unclear" : row.getWeatherStatus().toPersistenceValue(),
+                        Boolean.TRUE.equals(row.getWeatherImpacted()),
+                        row.getReasonCodes() == null ? List.of() : row.getReasonCodes(),
+                        row.getSummaryNote()
                 ))
                 .toList();
     }
