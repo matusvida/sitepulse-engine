@@ -61,7 +61,7 @@ class RunOnDemandDetectionUseCaseTest {
     private static final class Fixtures {
 
         private final RecordingObjectStorage objectStorage = new RecordingObjectStorage();
-        private final DetectionExecutionService detectionExecutionService = new DetectionExecutionService(null, null, null, null, null, null) {
+        private final DetectionExecutionService detectionExecutionService = new DetectionExecutionService(null, null, null, null, null, null, null) {
             @Override
             public DetectionExecutionResult execute(DetectionImage image, byte[] imageBytes, CameraRoiSettings cameraSettings) {
                 return new DetectionExecutionResult(

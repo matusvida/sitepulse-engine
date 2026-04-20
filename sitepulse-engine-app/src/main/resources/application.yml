@@ -49,6 +49,21 @@ management:
     health:
       show-details: always
 
+resilience4j:
+  retry:
+    instances:
+      openaiDetection:
+        max-attempts: 3
+        wait-duration: 2s
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        enable-randomized-wait: true
+        randomized-wait-factor: 0.5
+        retry-exceptions:
+          - com.sitepulse.engine.detection.application.service.OpenAiRetryableException
+        ignore-exceptions:
+          - com.sitepulse.engine.detection.application.service.OpenAiNonRetryableException
+
 springdoc:
   api-docs:
     path: /v3/api-docs

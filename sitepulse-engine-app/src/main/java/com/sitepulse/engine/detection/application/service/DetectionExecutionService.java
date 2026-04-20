@@ -11,6 +11,9 @@ import com.sitepulse.engine.detection.domain.enums.DetectionProvider;
 import com.sitepulse.engine.detection.domain.port.AiDetectionGateway;
 import com.sitepulse.engine.detection.domain.port.CameraLookup;
 import com.sitepulse.engine.detection.domain.port.DetectionGateway;
+import feign.FeignException;
+import feign.RetryableException;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,6 +29,7 @@ public class DetectionExecutionService {
     private final DetectionContextService detectionContextService;
     private final DetectionAnalysisRunService detectionAnalysisRunService;
     private final CameraLookup cameraLookup;
+    private final OpenAiRetryExecutor openAiRetryExecutor;
 
     public DetectionExecutionResult execute(DetectionImage image, byte[] imageBytes) {
         CameraRoiSettings cameraSettings = image.getProjectId() == null ? null : cameraLookup.findRoiSettings(image.getProjectId(), image.getKey());
@@ -52,42 +56,19 @@ public class DetectionExecutionService {
 
     private DetectionExecutionResult runOpenAi(DetectionImage image, byte[] imageBytes, Integer previousImageId, CameraRoiSettings cameraSettings) {
         DetectionContext context = detectionContextService.findPreviousContext(image).orElse(null);
-        for (int attempt = 1; attempt <= 3; attempt++) {
-            Integer runId = detectionAnalysisRunService.startRun(
-                    image.getId(),
+        AtomicInteger attemptCounter = new AtomicInteger();
+        try {
+            return openAiRetryExecutor.execute(() -> runOpenAiAttempt(
+                    image,
+                    imageBytes,
                     previousImageId,
-                    DetectionProvider.OPENAI.name().toLowerCase(),
-                    properties.openaiModel(),
-                    aiDetectionGateway.promptVersion(),
-                    attempt - 1
-            );
-            try {
-                AiDetectionResult result = aiDetectionGateway.infer(imageBytes, context, cameraSettings);
-                log.info(
-                        "OpenAI detection succeeded imageId={} prompt_version={} attempt={} roi_in_prompt={} detections={}",
-                        image.getId(),
-                        result.promptVersion(),
-                        attempt,
-                        result.roiIncluded(),
-                        result.inference().rawDetections().size()
-                );
-                return new DetectionExecutionResult(DetectionProvider.OPENAI, result.inference(), runId, result.rawResponse());
-            } catch (RuntimeException ex) {
-                String failureReason = failureReason(ex);
-                detectionAnalysisRunService.completeFailure(runId, failureReason + ": " + ex.getMessage());
-                log.warn(
-                        "OpenAI detection failed imageId={} prompt_version={} attempt={} reason={}",
-                        image.getId(),
-                        aiDetectionGateway.promptVersion(),
-                        attempt,
-                        failureReason
-                );
-                if (attempt == 3) {
-                    throw ex;
-                }
-            }
+                    cameraSettings,
+                    context,
+                    attemptCounter.incrementAndGet()
+            ));
+        } catch (OpenAiRetryException ex) {
+            throw ex.original();
         }
-        throw new IllegalStateException("OpenAI detection failed unexpectedly");
     }
 
     private DetectionExecutionResult runYolo(DetectionImage image, byte[] imageBytes, Integer previousImageId) {
@@ -103,7 +84,69 @@ public class DetectionExecutionService {
         return new DetectionExecutionResult(DetectionProvider.YOLO, inference, runId, null);
     }
 
-    private String failureReason(RuntimeException ex) {
+    private DetectionExecutionResult runOpenAiAttempt(
+            DetectionImage image,
+            byte[] imageBytes,
+            Integer previousImageId,
+            CameraRoiSettings cameraSettings,
+            DetectionContext context,
+            int attempt
+    ) {
+        Integer runId = detectionAnalysisRunService.startRun(
+                image.getId(),
+                previousImageId,
+                DetectionProvider.OPENAI.name().toLowerCase(),
+                properties.openaiModel(),
+                aiDetectionGateway.promptVersion(),
+                attempt - 1
+        );
+        try {
+            AiDetectionResult result = aiDetectionGateway.infer(imageBytes, context, cameraSettings);
+            log.info(
+                    "OpenAI detection succeeded imageId={} prompt_version={} attempt={} roi_in_prompt={} detections={}",
+                    image.getId(),
+                    result.promptVersion(),
+                    attempt,
+                    result.roiIncluded(),
+                    result.inference().rawDetections().size()
+            );
+            return new DetectionExecutionResult(DetectionProvider.OPENAI, result.inference(), runId, result.rawResponse());
+        } catch (RuntimeException ex) {
+            OpenAiRetryException mapped = toRetryException(ex);
+            detectionAnalysisRunService.completeFailure(runId, mapped.failureReason() + ": " + mapped.getMessage());
+            log.warn(
+                    "OpenAI detection failed imageId={} prompt_version={} attempt={} reason={} exception={} message={} retryable={}",
+                    image.getId(),
+                    aiDetectionGateway.promptVersion(),
+                    attempt,
+                    mapped.failureReason(),
+                    ex.getClass().getSimpleName(),
+                    ex.getMessage(),
+                    mapped instanceof OpenAiRetryableException
+            );
+            throw mapped;
+        }
+    }
+
+    static String failureReason(RuntimeException ex) {
+        Integer status = statusCode(ex);
+        if (status != null) {
+            if (status == 429) {
+                return "openai_rate_limited";
+            }
+            if (status == 400) {
+                return "openai_bad_request";
+            }
+            if (status == 401 || status == 403) {
+                return "openai_auth_error";
+            }
+            if (status >= 500) {
+                return "openai_server_error";
+            }
+        }
+        if (isTimeoutLike(ex)) {
+            return "openai_timeout";
+        }
         if (ex.getMessage() == null || ex.getMessage().isBlank()) {
             return "runtime_error";
         }
@@ -118,5 +161,44 @@ public class DetectionExecutionService {
             return "image_decode_error";
         }
         return "runtime_error";
+    }
+
+    static OpenAiRetryException toRetryException(RuntimeException ex) {
+        return switch (failureReason(ex)) {
+            case "openai_rate_limited", "openai_server_error", "openai_timeout" -> new OpenAiRetryableException(failureReason(ex), ex);
+            default -> new OpenAiNonRetryableException(failureReason(ex), ex);
+        };
+    }
+
+    private static Integer statusCode(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof FeignException feignException) {
+                return feignException.status();
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
+    private static boolean isTimeoutLike(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof RetryableException) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null) {
+                String normalized = message.toLowerCase();
+                if (normalized.contains("timeout")
+                        || normalized.contains("timed out")
+                        || normalized.contains("read timed out")
+                        || normalized.contains("connect timed out")) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }
