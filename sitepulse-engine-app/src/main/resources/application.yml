@@ -63,6 +63,17 @@ resilience4j:
           - com.sitepulse.engine.detection.application.service.OpenAiRetryableException
         ignore-exceptions:
           - com.sitepulse.engine.detection.application.service.OpenAiNonRetryableException
+  ratelimiter:
+    instances:
+      openaiDetection:
+        limit-for-period: 1
+        limit-refresh-period: 10s
+        timeout-duration: 30s
+  bulkhead:
+    instances:
+      openaiDetection:
+        max-concurrent-calls: 1
+        max-wait-duration: 0s
 
 springdoc:
   api-docs:

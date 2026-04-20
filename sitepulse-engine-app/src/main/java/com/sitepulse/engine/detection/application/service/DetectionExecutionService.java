@@ -14,6 +14,8 @@ import com.sitepulse.engine.detection.domain.port.DetectionGateway;
 import feign.FeignException;
 import feign.RetryableException;
 import java.util.concurrent.atomic.AtomicInteger;
+import io.github.resilience4j.bulkhead.BulkheadFullException;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -113,7 +115,7 @@ public class DetectionExecutionService {
             return new DetectionExecutionResult(DetectionProvider.OPENAI, result.inference(), runId, result.rawResponse());
         } catch (RuntimeException ex) {
             OpenAiRetryException mapped = toRetryException(ex);
-            detectionAnalysisRunService.completeFailure(runId, mapped.failureReason() + ": " + mapped.getMessage());
+            detectionAnalysisRunService.completeFailure(runId, mapped.failureReason().value() + ": " + mapped.getMessage());
             log.warn(
                     "OpenAI detection failed imageId={} prompt_version={} attempt={} reason={} exception={} message={} retryable={}",
                     image.getId(),
@@ -128,44 +130,50 @@ public class DetectionExecutionService {
         }
     }
 
-    static String failureReason(RuntimeException ex) {
+    static DetectionFailureReason failureReason(RuntimeException ex) {
+        if (containsCause(ex, RequestNotPermitted.class)) {
+            return DetectionFailureReason.OPENAI_LOCAL_RATE_LIMITED;
+        }
+        if (containsCause(ex, BulkheadFullException.class)) {
+            return DetectionFailureReason.OPENAI_BULKHEAD_REJECTED;
+        }
         Integer status = statusCode(ex);
         if (status != null) {
             if (status == 429) {
-                return "openai_rate_limited";
+                return DetectionFailureReason.OPENAI_RATE_LIMITED;
             }
             if (status == 400) {
-                return "openai_bad_request";
+                return DetectionFailureReason.OPENAI_BAD_REQUEST;
             }
             if (status == 401 || status == 403) {
-                return "openai_auth_error";
+                return DetectionFailureReason.OPENAI_AUTH_ERROR;
             }
             if (status >= 500) {
-                return "openai_server_error";
+                return DetectionFailureReason.OPENAI_SERVER_ERROR;
             }
         }
         if (isTimeoutLike(ex)) {
-            return "openai_timeout";
+            return DetectionFailureReason.OPENAI_TIMEOUT;
         }
         if (ex.getMessage() == null || ex.getMessage().isBlank()) {
-            return "runtime_error";
+            return DetectionFailureReason.RUNTIME_ERROR;
         }
         String message = ex.getMessage().toLowerCase();
         if (message.contains("parse")) {
-            return "parse_error";
+            return DetectionFailureReason.PARSE_ERROR;
         }
         if (message.contains("class_id") || message.contains("class_name")) {
-            return "unknown_class";
+            return DetectionFailureReason.UNKNOWN_CLASS;
         }
         if (message.contains("decode")) {
-            return "image_decode_error";
+            return DetectionFailureReason.IMAGE_DECODE_ERROR;
         }
-        return "runtime_error";
+        return DetectionFailureReason.RUNTIME_ERROR;
     }
 
     static OpenAiRetryException toRetryException(RuntimeException ex) {
         return switch (failureReason(ex)) {
-            case "openai_rate_limited", "openai_server_error", "openai_timeout" -> new OpenAiRetryableException(failureReason(ex), ex);
+            case OPENAI_RATE_LIMITED, OPENAI_SERVER_ERROR, OPENAI_TIMEOUT -> new OpenAiRetryableException(failureReason(ex), ex);
             default -> new OpenAiNonRetryableException(failureReason(ex), ex);
         };
     }
@@ -196,6 +204,17 @@ public class DetectionExecutionService {
                         || normalized.contains("connect timed out")) {
                     return true;
                 }
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static boolean containsCause(Throwable throwable, Class<? extends Throwable> type) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (type.isInstance(current)) {
+                return true;
             }
             current = current.getCause();
         }

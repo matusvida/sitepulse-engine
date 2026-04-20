@@ -4,6 +4,8 @@ import feign.FeignException;
 import feign.Request;
 import feign.Response;
 import feign.RetryableException;
+import io.github.resilience4j.bulkhead.BulkheadFullException;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Map;
@@ -19,7 +21,7 @@ class DetectionExecutionServiceTest {
     void failureReasonClassifiesOpenAiRateLimit() {
         RuntimeException ex = feignException(429, "Too Many Requests");
 
-        assertEquals("openai_rate_limited", DetectionExecutionService.failureReason(ex));
+        assertEquals(DetectionFailureReason.OPENAI_RATE_LIMITED, DetectionExecutionService.failureReason(ex));
         assertTrue(DetectionExecutionService.toRetryException(ex) instanceof OpenAiRetryableException);
     }
 
@@ -27,7 +29,7 @@ class DetectionExecutionServiceTest {
     void failureReasonClassifiesOpenAiServerError() {
         RuntimeException ex = feignException(503, "Service Unavailable");
 
-        assertEquals("openai_server_error", DetectionExecutionService.failureReason(ex));
+        assertEquals(DetectionFailureReason.OPENAI_SERVER_ERROR, DetectionExecutionService.failureReason(ex));
         assertTrue(DetectionExecutionService.toRetryException(ex) instanceof OpenAiRetryableException);
     }
 
@@ -42,15 +44,35 @@ class DetectionExecutionServiceTest {
                 request()
         );
 
-        assertEquals("openai_timeout", DetectionExecutionService.failureReason(ex));
+        assertEquals(DetectionFailureReason.OPENAI_TIMEOUT, DetectionExecutionService.failureReason(ex));
         assertTrue(DetectionExecutionService.toRetryException(ex) instanceof OpenAiRetryableException);
+    }
+
+    @Test
+    void failureReasonClassifiesLocalRateLimiterRejection() {
+        RuntimeException ex = RequestNotPermitted.createRequestNotPermitted(
+                io.github.resilience4j.ratelimiter.RateLimiter.ofDefaults("openaiDetection")
+        );
+
+        assertEquals(DetectionFailureReason.OPENAI_LOCAL_RATE_LIMITED, DetectionExecutionService.failureReason(ex));
+        assertTrue(DetectionExecutionService.toRetryException(ex) instanceof OpenAiNonRetryableException);
+    }
+
+    @Test
+    void failureReasonClassifiesBulkheadRejection() {
+        RuntimeException ex = BulkheadFullException.createBulkheadFullException(
+                io.github.resilience4j.bulkhead.Bulkhead.ofDefaults("openaiDetection")
+        );
+
+        assertEquals(DetectionFailureReason.OPENAI_BULKHEAD_REJECTED, DetectionExecutionService.failureReason(ex));
+        assertTrue(DetectionExecutionService.toRetryException(ex) instanceof OpenAiNonRetryableException);
     }
 
     @Test
     void failureReasonKeepsParseErrorsNonRetryable() {
         RuntimeException ex = new IllegalStateException("Failed to parse OpenAI detection response");
 
-        assertEquals("parse_error", DetectionExecutionService.failureReason(ex));
+        assertEquals(DetectionFailureReason.PARSE_ERROR, DetectionExecutionService.failureReason(ex));
         assertTrue(DetectionExecutionService.toRetryException(ex) instanceof OpenAiNonRetryableException);
     }
 
@@ -58,7 +80,7 @@ class DetectionExecutionServiceTest {
     void failureReasonClassifiesBadRequestWithoutRetry() {
         RuntimeException ex = feignException(400, "Bad Request");
 
-        assertEquals("openai_bad_request", DetectionExecutionService.failureReason(ex));
+        assertEquals(DetectionFailureReason.OPENAI_BAD_REQUEST, DetectionExecutionService.failureReason(ex));
         assertTrue(DetectionExecutionService.toRetryException(ex) instanceof OpenAiNonRetryableException);
     }
 

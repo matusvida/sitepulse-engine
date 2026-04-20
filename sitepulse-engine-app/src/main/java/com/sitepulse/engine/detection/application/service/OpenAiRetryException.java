@@ -2,16 +2,16 @@ package com.sitepulse.engine.detection.application.service;
 
 public abstract class OpenAiRetryException extends RuntimeException {
 
-    private final String failureReason;
+    private final DetectionFailureReason failureReason;
     private final RuntimeException original;
 
-    protected OpenAiRetryException(String failureReason, RuntimeException original) {
+    protected OpenAiRetryException(DetectionFailureReason failureReason, RuntimeException original) {
         super(original.getMessage(), original);
         this.failureReason = failureReason;
         this.original = original;
     }
 
-    public String failureReason() {
+    public DetectionFailureReason failureReason() {
         return failureReason;
     }
 
