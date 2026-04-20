@@ -73,7 +73,7 @@ resilience4j:
     instances:
       openaiDetection:
         max-concurrent-calls: 1
-        max-wait-duration: 0s
+        max-wait-duration: 15s
 
 springdoc:
   api-docs:
