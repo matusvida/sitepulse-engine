@@ -5,6 +5,7 @@ import java.time.OffsetDateTime;
 
 public record DetectionActivitySample(
         String className,
+        String classGroup,
         Integer imageId,
         OffsetDateTime capturedAt,
         LocalDate capturedDate

@@ -157,8 +157,12 @@ public class DetectionImage {
     }
 
     public void markFailed(OffsetDateTime now) {
-        if (status != ImageStatus.PROCESSING) {
-            throw new IllegalStateException("Can only mark failed images in PROCESSING state, current: " + status);
+        if (status == ImageStatus.FAILED) {
+            updatedAt = now;
+            return;
+        }
+        if (status != ImageStatus.PROCESSING && status != ImageStatus.DONE) {
+            throw new IllegalStateException("Can only mark failed images in PROCESSING or DONE state, current: " + status);
         }
         status = ImageStatus.FAILED;
         updatedAt = now;

@@ -60,6 +60,24 @@ class DetectionImageTest {
     }
 
     @Test
+    void markFailedFromDoneSucceeds() {
+        DetectionImage image = DetectionImage.createNew("bucket", "key", 1, 1, NOW, NOW);
+        image.markProcessing(NOW.plusMinutes(1));
+        image.markDone(NOW.plusMinutes(2));
+        image.markFailed(NOW.plusMinutes(3));
+        assertEquals(ImageStatus.FAILED, image.getStatus());
+    }
+
+    @Test
+    void markFailedFromFailedIsIdempotent() {
+        DetectionImage image = DetectionImage.createNew("bucket", "key", 1, 1, NOW, NOW);
+        image.markProcessing(NOW.plusMinutes(1));
+        image.markFailed(NOW.plusMinutes(2));
+        image.markFailed(NOW.plusMinutes(3));
+        assertEquals(ImageStatus.FAILED, image.getStatus());
+    }
+
+    @Test
     void createDetectedSetsStatusDone() {
         DetectionImage image = DetectionImage.createDetected("bucket", "key", 1, 1, NOW, NOW);
         assertEquals(ImageStatus.DONE, image.getStatus());

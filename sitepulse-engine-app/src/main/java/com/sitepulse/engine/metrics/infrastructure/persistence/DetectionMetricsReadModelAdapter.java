@@ -66,7 +66,7 @@ public class DetectionMetricsReadModelAdapter implements DetectionMetricsReadMod
     @Override
     public List<DetectionActivitySample> findDetectionActivityForDay(Integer projectId, LocalDate targetDate) {
         Query query = entityManager.createNativeQuery("""
-                SELECT c.class_name, d.image_id, i.captured_at
+                SELECT c.class_name, c.class_group, d.image_id, i.captured_at
                 FROM detections d
                 JOIN detection_classes c ON d.class_id = c.id
                 JOIN images i ON d.image_id = i.id
@@ -82,8 +82,9 @@ public class DetectionMetricsReadModelAdapter implements DetectionMetricsReadMod
         return rows.stream()
                 .map(row -> new DetectionActivitySample(
                         (String) row[0],
-                        ((Number) row[1]).intValue(),
-                        toCapturedAt(row[2]),
+                        (String) row[1],
+                        ((Number) row[2]).intValue(),
+                        toCapturedAt(row[3]),
                         targetDate
                 ))
                 .toList();
