@@ -1,5 +1,6 @@
 package com.sitepulse.engine.metrics.application.result;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -17,8 +18,8 @@ import lombok.ToString;
 public class WeeklyMetricResult {
 
     private LocalDate weekStart;
-    private double progressDelta;
-    private double activityIndex;
+    private BigDecimal progressDelta;
+    private BigDecimal activityIndex;
     private double activeHours;
     private String riskLevel;
 }

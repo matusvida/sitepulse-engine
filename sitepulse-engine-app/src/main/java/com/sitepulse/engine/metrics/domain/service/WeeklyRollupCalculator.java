@@ -3,6 +3,8 @@ package com.sitepulse.engine.metrics.domain.service;
 import com.sitepulse.engine.metrics.domain.model.DailyMetric;
 import com.sitepulse.engine.metrics.domain.enums.RiskLevel;
 import com.sitepulse.engine.metrics.domain.policy.RiskClassificationPolicy;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
@@ -12,13 +14,13 @@ public class WeeklyRollupCalculator {
 
     private final RiskClassificationPolicy riskPolicy = new RiskClassificationPolicy();
 
-    public record WeeklyRollup(double progressDelta, double activityIndex, double activeHours, RiskLevel riskLevel) {}
+    public record WeeklyRollup(BigDecimal progressDelta, BigDecimal activityIndex, double activeHours, RiskLevel riskLevel) {}
 
     public WeeklyRollup calculate(
             List<DailyMetric> currentWeekDaily,
             List<DailyMetric> previousWeekDaily,
             List<DailyMetric> allHistoricDaily,
-            Double rollingAverageActivity
+            BigDecimal rollingAverageActivity
     ) {
         double totalActivity = sumActivity(currentWeekDaily);
         double totalHours = currentWeekDaily.stream()
@@ -37,10 +39,11 @@ public class WeeklyRollupCalculator {
                 .max()
                 .orElse(1.0);
 
-        double activityIndex = Math.clamp(maxActivity == 0 ? 0 : (totalActivity / maxActivity) * 100.0, 0.0, 100.0);
+        BigDecimal roundedProgressDelta = toScaledDecimal(progressDelta);
+        BigDecimal activityIndex = toScaledDecimal(Math.clamp(maxActivity == 0 ? 0 : (totalActivity / maxActivity) * 100.0, 0.0, 100.0));
         RiskLevel riskLevel = riskPolicy.classify(activityIndex, rollingAverageActivity);
 
-        return new WeeklyRollup(progressDelta, activityIndex, totalHours, riskLevel);
+        return new WeeklyRollup(roundedProgressDelta, activityIndex, totalHours, riskLevel);
     }
 
     private double sumActivity(List<DailyMetric> daily) {
@@ -48,5 +51,9 @@ public class WeeklyRollupCalculator {
                 .mapToDouble(row -> (row.getPeopleCount() == null ? 0 : row.getPeopleCount())
                         + (row.getVehicleCount() == null ? 0 : row.getVehicleCount()))
                 .sum();
+    }
+
+    private BigDecimal toScaledDecimal(double value) {
+        return BigDecimal.valueOf(value).setScale(1, RoundingMode.HALF_UP);
     }
 }

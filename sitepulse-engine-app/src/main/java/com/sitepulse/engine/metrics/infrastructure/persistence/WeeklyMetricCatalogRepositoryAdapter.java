@@ -3,6 +3,7 @@ package com.sitepulse.engine.metrics.infrastructure.persistence;
 import com.sitepulse.engine.metrics.domain.enums.RiskLevel;
 import com.sitepulse.engine.metrics.domain.model.WeeklyMetric;
 import com.sitepulse.engine.metrics.domain.port.WeeklyMetricCatalogRepository;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -44,7 +45,7 @@ public class WeeklyMetricCatalogRepositoryAdapter implements WeeklyMetricCatalog
     }
 
     @Override
-    public Double findAverageActivityBefore(Integer projectId, LocalDate weekStart) {
+    public BigDecimal findAverageActivityBefore(Integer projectId, LocalDate weekStart) {
         return weeklyMetricRepository.findAverageActivityBefore(projectId, weekStart);
     }
 

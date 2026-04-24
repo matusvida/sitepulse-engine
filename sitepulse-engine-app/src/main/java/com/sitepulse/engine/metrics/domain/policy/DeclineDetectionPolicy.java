@@ -1,6 +1,7 @@
 package com.sitepulse.engine.metrics.domain.policy;
 
 import com.sitepulse.engine.metrics.domain.model.WeeklyMetric;
+import java.math.BigDecimal;
 import java.util.List;
 
 public class DeclineDetectionPolicy {
@@ -9,7 +10,7 @@ public class DeclineDetectionPolicy {
 
     public long consecutiveNegativeWeeks(List<WeeklyMetric> recentWeekly) {
         return recentWeekly.stream()
-                .takeWhile(row -> row.getProgressDelta() != null && row.getProgressDelta() < 0)
+                .takeWhile(row -> row.getProgressDelta() != null && row.getProgressDelta().compareTo(BigDecimal.ZERO) < 0)
                 .count();
     }
 

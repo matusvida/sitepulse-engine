@@ -26,6 +26,7 @@ import com.sitepulse.engine.metrics.domain.service.DailyActivityClassificationSe
 import com.sitepulse.engine.metrics.domain.service.DailyActivityAggregator;
 import com.sitepulse.engine.metrics.domain.service.WeeklyRollupCalculator;
 import com.sitepulse.engine.project.application.ProjectLookupService;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -114,7 +115,7 @@ public class RunProjectAnalysisUseCase {
 
         List<DailyMetric> previousWeek = dailyMetricCatalogRepository.findBetween(projectId, weekStart.minusDays(7), weekStart.minusDays(1));
         List<DailyMetric> allHistoric = dailyMetricCatalogRepository.findAllSince(projectId, LocalDate.of(2000, 1, 1));
-        Double rollingAverage = weeklyMetricCatalogRepository.findAverageActivityBefore(projectId, weekStart);
+        BigDecimal rollingAverage = weeklyMetricCatalogRepository.findAverageActivityBefore(projectId, weekStart);
 
         WeeklyRollupCalculator.WeeklyRollup rollup = weeklyCalculator.calculate(currentWeek, previousWeek, allHistoric, rollingAverage);
 

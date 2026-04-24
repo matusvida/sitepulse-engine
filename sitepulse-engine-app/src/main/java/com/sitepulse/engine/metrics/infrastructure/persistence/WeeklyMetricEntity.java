@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import lombok.AllArgsConstructor;
@@ -40,11 +41,11 @@ public class WeeklyMetricEntity {
     @ToString.Include
     private LocalDate weekStart;
 
-    @Column(name = "progress_delta")
-    private Double progressDelta;
+    @Column(name = "progress_delta", precision = 8, scale = 1)
+    private BigDecimal progressDelta;
 
-    @Column(name = "activity_index")
-    private Double activityIndex;
+    @Column(name = "activity_index", precision = 8, scale = 1)
+    private BigDecimal activityIndex;
 
     @Column(name = "active_hours")
     private Double activeHours;

@@ -18,8 +18,8 @@ public class ListWeeklyMetricsQuery {
         List<WeeklyMetricResult> results = new ArrayList<>(weeklyMetricCatalogRepository.findLatest(projectId, weeks).stream()
                 .map(row -> new WeeklyMetricResult(
                         row.getWeekStart(),
-                        row.getProgressDelta() == null ? 0.0 : row.getProgressDelta(),
-                        row.getActivityIndex() == null ? 0.0 : row.getActivityIndex(),
+                        row.getProgressDelta(),
+                        row.getActivityIndex(),
                         row.getActiveHours() == null ? 0.0 : row.getActiveHours(),
                         row.getRiskLevel() == null ? "Low" : row.getRiskLevel().toPersistenceValue()
                 ))

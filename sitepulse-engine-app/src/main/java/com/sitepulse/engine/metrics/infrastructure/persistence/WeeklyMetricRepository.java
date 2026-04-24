@@ -1,5 +1,6 @@
 package com.sitepulse.engine.metrics.infrastructure.persistence;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -20,5 +21,5 @@ public interface WeeklyMetricRepository extends JpaRepository<WeeklyMetricEntity
             select avg(w.activityIndex) from WeeklyMetricEntity w
             where w.projectId = :projectId and w.weekStart < :beforeWeek
             """)
-    Double findAverageActivityBefore(@Param("projectId") Integer projectId, @Param("beforeWeek") LocalDate beforeWeek);
+    BigDecimal findAverageActivityBefore(@Param("projectId") Integer projectId, @Param("beforeWeek") LocalDate beforeWeek);
 }
