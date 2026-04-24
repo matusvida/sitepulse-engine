@@ -2,7 +2,7 @@ package com.sitepulse.engine.metrics.application.usecase;
 
 import com.sitepulse.engine.common.util.JsonUtils;
 import com.sitepulse.engine.detection.application.enums.ImageEvidenceCandidateTag;
-import com.sitepulse.engine.detection.application.enums.ImageEvidenceSummaryField;
+import com.sitepulse.engine.detection.domain.model.ImageEvidenceSummary;
 import com.sitepulse.engine.detection.domain.model.StoredImage;
 import com.sitepulse.engine.detection.domain.port.ProcessedImageReadModel;
 import com.sitepulse.engine.alert.application.command.CreateAlertCommand;
@@ -21,6 +21,7 @@ import com.sitepulse.engine.metrics.domain.port.DetectionMetricsReadModel;
 import com.sitepulse.engine.metrics.domain.port.WeeklyMetricCatalogRepository;
 import com.sitepulse.engine.metrics.domain.policy.DeclineDetectionPolicy;
 import com.sitepulse.engine.metrics.domain.policy.StallDetectionPolicy;
+import com.sitepulse.engine.metrics.domain.service.DailyActiveHoursCalculator;
 import com.sitepulse.engine.metrics.domain.service.DailyActivityClassificationService;
 import com.sitepulse.engine.metrics.domain.service.DailyActivityAggregator;
 import com.sitepulse.engine.metrics.domain.service.WeeklyRollupCalculator;
@@ -28,8 +29,9 @@ import com.sitepulse.engine.project.application.ProjectLookupService;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -50,6 +52,7 @@ public class RunProjectAnalysisUseCase {
     private final JsonUtils jsonUtils;
 
     private final DailyActivityAggregator dailyAggregator = new DailyActivityAggregator();
+    private final DailyActiveHoursCalculator dailyActiveHoursCalculator = new DailyActiveHoursCalculator();
     private final DailyActivityClassificationService dailyActivityClassificationService = new DailyActivityClassificationService();
     private final WeeklyRollupCalculator weeklyCalculator = new WeeklyRollupCalculator();
     private final StallDetectionPolicy stallPolicy = new StallDetectionPolicy();
@@ -86,10 +89,11 @@ public class RunProjectAnalysisUseCase {
         }
 
         DailyActivityAggregator.DailyAggregation aggregation = dailyAggregator.aggregate(rows);
-        DailyActivityAssessment assessment = dailyActivityClassificationService.classify(buildDailyEvidence(projectId, targetDate, aggregation));
+        DailyActivityEvidence evidence = buildDailyEvidence(projectId, targetDate, aggregation);
+        DailyActivityAssessment assessment = dailyActivityClassificationService.classify(evidence);
         DailyMetric metric = dailyMetricCatalogRepository.findByProjectAndDate(projectId, targetDate)
                 .orElse(DailyMetric.create(projectId, targetDate, OffsetDateTime.now(ZoneOffset.UTC)));
-        metric.updateCounts(aggregation.peopleCount(), aggregation.vehicleCount(), aggregation.activeHours());
+        metric.updateCounts(aggregation.peopleCount(), aggregation.vehicleCount(), evidence.activeHours());
         metric.updateAssessment(
                 assessment.activityStatus(),
                 assessment.activityConfidence(),
@@ -173,6 +177,7 @@ public class RunProjectAnalysisUseCase {
         boolean rainObserved = false;
         boolean snowObserved = false;
         boolean limitedVisibility = false;
+        Set<Integer> activeHours = new HashSet<>();
 
         for (StoredImage image : images) {
             maxActivityScore = Math.max(maxActivityScore, safeScore(image.getEvidenceActivityScore()));
@@ -188,11 +193,11 @@ public class RunProjectAnalysisUseCase {
                 snowObserved = true;
             }
 
-            Map<String, Object> summary = readSummary(image.getEvidenceSummary());
-            List<String> candidateTags = readStringList(summary.get(ImageEvidenceSummaryField.CANDIDATE_TAGS.key()));
-            List<String> firstAppearanceFlags = readStringList(summary.get(ImageEvidenceSummaryField.FIRST_APPEARANCE_FLAGS.key()));
-            List<String> changeFlags = readStringList(summary.get(ImageEvidenceSummaryField.CHANGE_FLAGS.key()));
-            List<String> qualityFlags = readStringList(summary.get(ImageEvidenceSummaryField.QUALITY_FLAGS.key()));
+            ImageEvidenceSummary summary = readSummary(image.getEvidenceSummary());
+            List<String> candidateTags = summary.candidateTags();
+            List<String> firstAppearanceFlags = summary.firstAppearanceFlags();
+            List<String> changeFlags = summary.changeFlags();
+            List<String> qualityFlags = summary.qualityFlags();
 
             movementSignalCount += candidateTags.size() + firstAppearanceFlags.size() + changeFlags.size();
             loadingActivityDetected |= candidateTags.contains(ImageEvidenceCandidateTag.LOADING_ACTIVITY.value());
@@ -200,13 +205,16 @@ public class RunProjectAnalysisUseCase {
                     || !firstAppearanceFlags.isEmpty()
                     || !changeFlags.isEmpty();
             limitedVisibility |= !qualityFlags.isEmpty();
+            if (image.getCapturedAt() != null && dailyActiveHoursCalculator.isActiveImage(summary)) {
+                activeHours.add(image.getCapturedAt().getHour());
+            }
         }
 
         return new DailyActivityEvidence(
                 images.size(),
                 aggregation.peopleCount(),
                 aggregation.vehicleCount(),
-                aggregation.activeHours(),
+                activeHours.size(),
                 maxActivityScore,
                 maxChangeScore,
                 qualityScoreCount == 0 ? 0.0 : qualityScoreSum / qualityScoreCount,
@@ -219,22 +227,11 @@ public class RunProjectAnalysisUseCase {
         );
     }
 
-    private Map<String, Object> readSummary(String evidenceSummary) {
+    private ImageEvidenceSummary readSummary(String evidenceSummary) {
         if (evidenceSummary == null || evidenceSummary.isBlank()) {
-            return Map.of();
+            return ImageEvidenceSummary.empty();
         }
-        return jsonUtils.readMap(evidenceSummary);
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<String> readStringList(Object value) {
-        if (!(value instanceof List<?> list)) {
-            return List.of();
-        }
-        return list.stream()
-                .filter(String.class::isInstance)
-                .map(String.class::cast)
-                .toList();
+        return jsonUtils.read(evidenceSummary, ImageEvidenceSummary.class);
     }
 
     private boolean containsRain(String weatherNote) {

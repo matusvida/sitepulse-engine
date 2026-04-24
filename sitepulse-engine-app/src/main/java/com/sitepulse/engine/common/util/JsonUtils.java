@@ -55,4 +55,12 @@ public class JsonUtils {
             throw new IllegalStateException("Unable to parse JSON object", ex);
         }
     }
+
+    public <T> T read(String value, Class<T> type) {
+        try {
+            return objectMapper.readValue(value, type);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Unable to parse JSON object", ex);
+        }
+    }
 }
