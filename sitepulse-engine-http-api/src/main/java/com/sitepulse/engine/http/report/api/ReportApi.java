@@ -1,6 +1,8 @@
 package com.sitepulse.engine.http.report.api;
 
+import com.sitepulse.engine.http.report.dto.GenerateDailyReportRequest;
 import com.sitepulse.engine.http.report.dto.GenerateReportRequest;
+import com.sitepulse.engine.http.report.dto.GenerateWeeklyReportRequest;
 import com.sitepulse.engine.http.report.dto.ReportDetailView;
 import com.sitepulse.engine.http.report.dto.ReportSummaryView;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,6 +23,14 @@ public interface ReportApi {
     @Operation(summary = "Generate a progress report")
     @PostMapping("/generate")
     ReportDetailView generate(@PathVariable Integer projectId, @Valid @RequestBody GenerateReportRequest request);
+
+    @Operation(summary = "Generate an automatic daily report for a specific day")
+    @PostMapping("/generate/daily")
+    ReportDetailView generateDaily(@PathVariable Integer projectId, @Valid @RequestBody GenerateDailyReportRequest request);
+
+    @Operation(summary = "Generate an automatic weekly report for the week containing the given date")
+    @PostMapping("/generate/weekly")
+    ReportDetailView generateWeekly(@PathVariable Integer projectId, @Valid @RequestBody GenerateWeeklyReportRequest request);
 
     @Operation(summary = "List generated reports")
     @GetMapping

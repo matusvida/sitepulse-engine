@@ -11,5 +11,5 @@ public interface ProgressReportRepository extends JpaRepository<ProgressReportEn
 
     Optional<ProgressReportEntity> findByIdAndProjectId(Integer id, Integer projectId);
 
-    Optional<ProgressReportEntity> findByProjectIdAndPeriodKey(Integer projectId, String periodKey);
+    Optional<ProgressReportEntity> findByProjectIdAndPeriodKeyAndLanguage(Integer projectId, String periodKey, String language);
 }

@@ -115,6 +115,7 @@ public class DailyReportSummaryBuilder {
         List<String> events = new ArrayList<>();
         events.addAll(tagEvents(map.get(ImageEvidenceSummaryField.CANDIDATE_TAGS.key())));
         events.addAll(tagEvents(map.get(ImageEvidenceSummaryField.FIRST_APPEARANCE_FLAGS.key())));
+        events.addAll(tagEvents(map.get(ImageEvidenceSummaryField.CHANGE_FLAGS.key())));
         return events;
     }
 
@@ -131,6 +132,15 @@ public class DailyReportSummaryBuilder {
     }
 
     private String humanize(String value) {
+        if (value.startsWith("first_")) {
+            return "first appearance of " + value.substring("first_".length()).replace('_', ' ');
+        }
+        if (value.startsWith("more_")) {
+            return "increase in " + value.substring("more_".length()).replace('_', ' ') + " presence";
+        }
+        if (value.startsWith("less_")) {
+            return "decrease in " + value.substring("less_".length()).replace('_', ' ') + " presence";
+        }
         return value.replace('_', ' ');
     }
 

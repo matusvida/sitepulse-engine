@@ -1,10 +1,13 @@
 package com.sitepulse.engine.report.web;
 
 import com.sitepulse.engine.http.report.api.ReportApi;
+import com.sitepulse.engine.http.report.dto.GenerateDailyReportRequest;
 import com.sitepulse.engine.http.report.dto.GenerateReportRequest;
+import com.sitepulse.engine.http.report.dto.GenerateWeeklyReportRequest;
 import com.sitepulse.engine.http.report.dto.ReportDetailView;
 import com.sitepulse.engine.http.report.dto.ReportEvidenceImageView;
 import com.sitepulse.engine.http.report.dto.ReportSummaryView;
+import com.sitepulse.engine.report.domain.enums.ReportLanguage;
 import com.sitepulse.engine.report.application.result.ProgressReportResult;
 import com.sitepulse.engine.report.application.result.ReportEvidenceImageResult;
 import com.sitepulse.engine.report.application.usecase.GenerateProgressReportUseCase;
@@ -28,7 +31,26 @@ public class ReportController implements ReportApi {
         return toReportView(generateProgressReportUseCase.generate(
                 projectId,
                 LocalDate.parse(request.getDateFrom()),
-                LocalDate.parse(request.getDateTo())
+                LocalDate.parse(request.getDateTo()),
+                ReportLanguage.fromRequest(request.getLanguage())
+        ));
+    }
+
+    @Override
+    public ReportDetailView generateDaily(Integer projectId, GenerateDailyReportRequest request) {
+        return toReportView(generateProgressReportUseCase.generateAutomaticDailyOnDemand(
+                projectId,
+                LocalDate.parse(request.getDate()),
+                ReportLanguage.fromRequest(request.getLanguage())
+        ));
+    }
+
+    @Override
+    public ReportDetailView generateWeekly(Integer projectId, GenerateWeeklyReportRequest request) {
+        return toReportView(generateProgressReportUseCase.generateAutomaticWeeklyOnDemand(
+                projectId,
+                LocalDate.parse(request.getDate()),
+                ReportLanguage.fromRequest(request.getLanguage())
         ));
     }
 
@@ -54,6 +76,7 @@ public class ReportController implements ReportApi {
                 result.getReportType(),
                 result.getGenerationOrigin(),
                 result.getConfidenceLevel(),
+                result.getLanguage(),
                 result.getPeriodLabel(),
                 result.getHeadline(),
                 result.getSummary(),
@@ -72,6 +95,7 @@ public class ReportController implements ReportApi {
                 result.getReportType(),
                 result.getGenerationOrigin(),
                 result.getConfidenceLevel(),
+                result.getLanguage(),
                 result.getPeriodLabel(),
                 result.getHeadline(),
                 result.getSummary(),

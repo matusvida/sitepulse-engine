@@ -52,9 +52,9 @@ class DailyReportSummaryBuilderTest {
 
                     @Override
                     public List<StoredImage> findDoneInRange(Integer projectId, OffsetDateTime from, OffsetDateTime to) {
-                        return List.of(
+                                return List.of(
                                 new StoredImage(1, "bucket", "key-1", ts, "overcast", 7.0, 3.0, 5.0, 6.0,
-                                        "{\"candidate_tags\":[\"loading_activity\"],\"first_appearance_flags\":[\"first_excavator\"]}"),
+                                        "{\"candidate_tags\":[\"loading_activity\"],\"first_appearance_flags\":[\"first_excavator\"],\"change_flags\":[\"more_truck\"]}"),
                                 new StoredImage(2, "bucket", "key-2", ts.plusMinutes(20), "overcast", 6.0, 2.0, 5.0, 5.5,
                                         "{\"candidate_tags\":[\"upper_parking_activity\"]}")
                         );
@@ -127,5 +127,7 @@ class DailyReportSummaryBuilderTest {
         assertTrue(summary.dominantClasses().contains("truck"));
         assertTrue(summary.contextText().contains("Structured Daily Summary"));
         assertTrue(summary.contextText().contains("loading activity"));
+        assertTrue(summary.contextText().contains("first appearance of excavator"));
+        assertTrue(summary.contextText().contains("increase in truck presence"));
     }
 }

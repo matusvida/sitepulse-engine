@@ -12,5 +12,5 @@ public interface ProgressReportCatalogRepository {
 
     Optional<ProgressReport> findByIdAndProject(Integer reportId, Integer projectId);
 
-    Optional<ProgressReport> findByProjectAndPeriodKey(Integer projectId, String periodKey);
+    Optional<ProgressReport> findByProjectAndPeriodKeyAndLanguage(Integer projectId, String periodKey, String language);
 }

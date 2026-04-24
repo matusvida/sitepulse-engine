@@ -5,6 +5,7 @@ import com.sitepulse.engine.common.exception.ProcessingException;
 import com.sitepulse.engine.report.domain.event.ProgressReportGeneratedEvent;
 import com.sitepulse.engine.report.domain.enums.ConfidenceLevel;
 import com.sitepulse.engine.report.domain.enums.GenerationOrigin;
+import com.sitepulse.engine.report.domain.enums.ReportLanguage;
 import com.sitepulse.engine.report.domain.model.ProgressReport;
 import com.sitepulse.engine.report.domain.model.ReportImageEvidence;
 import com.sitepulse.engine.report.domain.enums.ReportType;
@@ -38,6 +39,7 @@ public class ReportCompositionService {
             LocalDate dateTo,
             String periodKey,
             ConfidenceLevel confidenceLevel,
+            ReportLanguage language,
             String primaryContext,
             String milestonesContext,
             int maxImages
@@ -47,7 +49,7 @@ public class ReportCompositionService {
             throw new ProcessingException("No images found in the given date range. Run a sync first.");
         }
 
-        String content = reportGenerator.generate(imageData, primaryContext, milestonesContext);
+        String content = reportGenerator.generate(imageData, primaryContext, milestonesContext, language);
         String summary = extractSummary(content);
         ProgressReport report = ProgressReport.create(
                 projectId,
@@ -55,6 +57,7 @@ public class ReportCompositionService {
                 generationOrigin.toPersistenceValue(),
                 periodKey,
                 resolveConfidenceLevel(confidenceLevel, imageData.size()).toPersistenceValue(),
+                language.toPersistenceValue(),
                 content,
                 summary,
                 summary,

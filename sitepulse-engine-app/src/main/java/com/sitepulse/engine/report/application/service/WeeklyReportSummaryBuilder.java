@@ -29,13 +29,13 @@ public class WeeklyReportSummaryBuilder {
 
     public WeeklyReportSummary build(
             Integer projectId,
-            LocalDate weekStart,
+            LocalDate periodStart,
+            LocalDate periodEnd,
             Map<LocalDate, OffsetDateTime> fromByDay,
             Map<LocalDate, OffsetDateTime> toByDay
     ) {
         List<DailyReportSummary> dailySummaries = new ArrayList<>();
-        for (int index = 0; index < 7; index++) {
-            LocalDate day = weekStart.plusDays(index);
+        for (LocalDate day = periodStart; !day.isAfter(periodEnd); day = day.plusDays(1)) {
             dailySummaries.add(dailyReportSummaryBuilder.build(projectId, day, fromByDay.get(day), toByDay.get(day)));
         }
         int imageCount = dailySummaries.stream().mapToInt(DailyReportSummary::imageCount).sum();
@@ -49,16 +49,17 @@ public class WeeklyReportSummaryBuilder {
                 .filter(summary -> summary.imageCount() > 0)
                 .collect(Collectors.groupingBy(DailyReportSummary::weatherSummary, Collectors.counting()));
         WeatherSummary weatherPattern = resolveWeatherPattern(weatherCounts);
-        WeeklyMetric metric = weeklyMetricCatalogRepository.findByProjectAndWeekStart(projectId, weekStart).orElse(null);
+        LocalDate canonicalWeekStart = periodEnd.minusDays((long) periodEnd.getDayOfWeek().getValue() - java.time.DayOfWeek.MONDAY.getValue());
+        WeeklyMetric metric = weeklyMetricCatalogRepository.findByProjectAndWeekStart(projectId, canonicalWeekStart).orElse(null);
         List<String> notableEvents = dailySummaries.stream()
                 .flatMap(summary -> summary.notableEvents().stream())
                 .distinct()
                 .limit(8)
                 .toList();
         ConfidenceLevel confidence = confidence(activeDays, imageCount, metric != null);
-        String context = buildContext(weekStart, dailySummaries, weatherPattern, notableEvents, confidence, metric);
+        String context = buildContext(periodStart, periodEnd, dailySummaries, weatherPattern, notableEvents, confidence, metric);
         return new WeeklyReportSummary(
-                weekStart,
+                periodStart,
                 imageCount,
                 activeDays,
                 inactiveDays,
@@ -72,7 +73,8 @@ public class WeeklyReportSummaryBuilder {
     }
 
     private String buildContext(
-            LocalDate weekStart,
+            LocalDate periodStart,
+            LocalDate periodEnd,
             List<DailyReportSummary> dailySummaries,
             WeatherSummary weatherPattern,
             List<String> notableEvents,
@@ -81,7 +83,8 @@ public class WeeklyReportSummaryBuilder {
     ) {
         StringBuilder builder = new StringBuilder();
         builder.append("### Structured Weekly Summary\n");
-        builder.append("- week_start: ").append(weekStart).append('\n');
+        builder.append("- period_start: ").append(periodStart).append('\n');
+        builder.append("- period_end: ").append(periodEnd).append('\n');
         builder.append("- active_days: ").append(dailySummaries.stream().filter(summary -> summary.activityStatus() == DailyActivityStatus.ACTIVE).count()).append('\n');
         builder.append("- inactive_days: ").append(dailySummaries.stream().filter(summary -> summary.activityStatus() == DailyActivityStatus.INACTIVE).count()).append('\n');
         builder.append("- unknown_days: ").append(dailySummaries.stream().filter(summary -> summary.activityStatus() == DailyActivityStatus.UNKNOWN).count()).append('\n');
@@ -103,6 +106,12 @@ public class WeeklyReportSummaryBuilder {
                         .append(", activity=").append(summary.activityStatus().toPersistenceValue())
                         .append(", weather=").append(summary.weatherSummary().toPersistenceValue())
                         .append(", confidence=").append(summary.confidenceLevel().toPersistenceValue())
+                        .append(", dominant_classes=").append(summary.dominantClasses().isEmpty()
+                                ? "none"
+                                : String.join(", ", summary.dominantClasses()))
+                        .append(", notable_events=").append(summary.notableEvents().isEmpty()
+                                ? "none"
+                                : String.join("; ", summary.notableEvents()))
                         .append('\n'));
         if (!notableEvents.isEmpty()) {
             builder.append("- notable_events:\n");

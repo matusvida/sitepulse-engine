@@ -1,9 +1,10 @@
 package com.sitepulse.engine.report.application;
 
 import com.sitepulse.engine.report.application.result.ProgressReportResult;
-import java.util.List;
 import com.sitepulse.engine.report.domain.model.ProgressReport;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.List;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -16,6 +17,7 @@ public class ReportResultMapper {
                 report.getReportType(),
                 report.getGenerationOrigin(),
                 report.getConfidenceLevel(),
+                report.getLanguage() == null ? "SK" : report.getLanguage().toUpperCase(),
                 periodLabel(report),
                 report.getHeadline(),
                 report.getSummary(),
@@ -41,6 +43,9 @@ public class ReportResultMapper {
                 return from.toString();
             }
             if ("weekly".equalsIgnoreCase(report.getReportType())) {
+                if (!from.plusDays(6).equals(to) || from.getDayOfWeek() != DayOfWeek.MONDAY) {
+                    return from + " - " + to;
+                }
                 return "Week of " + from;
             }
             return from + " - " + to;

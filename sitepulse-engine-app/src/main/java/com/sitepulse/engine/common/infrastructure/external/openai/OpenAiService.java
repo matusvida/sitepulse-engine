@@ -17,6 +17,7 @@ import com.sitepulse.engine.common.infrastructure.external.openai.dto.OpenAiChat
 import com.sitepulse.engine.common.infrastructure.external.openai.dto.OpenAiImagePayload;
 import com.sitepulse.engine.common.infrastructure.external.openai.dto.ParsedPlanMilestonePayload;
 import com.sitepulse.engine.config.SitePulseProperties;
+import com.sitepulse.engine.report.domain.enums.ReportLanguage;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -55,9 +56,25 @@ public class OpenAiService {
         return readMilestones(content);
     }
 
-    public String generateProgressReport(List<OpenAiImagePayload> imageData, String metricsContext, String milestonesContext) {
+    public String generateProgressReport(
+            List<OpenAiImagePayload> imageData,
+            String metricsContext,
+            String milestonesContext,
+            ReportLanguage language
+    ) {
         List<Map<String, Object>> contentParts = new ArrayList<>();
-        StringBuilder textBlock = new StringBuilder("Generate a construction progress report.\n\n");
+        StringBuilder textBlock = new StringBuilder("""
+                Generate a construction progress report for the provided period.
+                Focus on meaningful construction progress and site changes, not just object counts.
+                Interpret the period as a timeline:
+                - compare earlier and later evidence
+                - identify what newly appeared, increased, decreased, or physically changed
+                - separate routine activity from actual construction progress
+                - highlight structural progress or installation sequences when visually supported
+                - if no meaningful progress is visible, say so plainly
+                
+                """);
+        textBlock.append("## Output Language\nWrite the report in ").append(language.promptLabel()).append(".\n\n");
         if (!metricsContext.isBlank()) {
             textBlock.append("## Metrics\n").append(metricsContext).append("\n\n");
         }
@@ -66,10 +83,11 @@ public class OpenAiService {
         }
         textBlock.append("""
                 ## Evidence Images
-                Below are evidence images from the report period.
+                Below are evidence images from the report period in chronological evidence order.
                 Do not output placeholder image headings such as Photo 1, Photo 2, or Photo 3.
                 The frontend will render clickable evidence image links separately.
                 Use timestamps only when they support a concrete observation.
+                Prioritize meaningful site transitions such as new foundations, concrete work, crane preparation or assembly, scaffolding growth, or other persistent structural changes.
                 
                 """);
         contentParts.add(Map.of("type", "text", "text", textBlock.toString()));

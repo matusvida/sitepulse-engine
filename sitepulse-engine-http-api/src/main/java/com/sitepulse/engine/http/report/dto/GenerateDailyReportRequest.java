@@ -14,13 +14,10 @@ import lombok.ToString;
 @AllArgsConstructor
 @EqualsAndHashCode
 @ToString
-public class GenerateReportRequest {
+public class GenerateDailyReportRequest {
 
     @NotBlank
-    private String dateFrom;
-
-    @NotBlank
-    private String dateTo;
+    private String date;
 
     private String language;
 }

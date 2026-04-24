@@ -30,6 +30,7 @@ public class ReportReadModelAdapter implements ReportReadModel {
                 entity.getGenerationOrigin(),
                 entity.getPeriodKey(),
                 entity.getConfidenceLevel(),
+                entity.getLanguage(),
                 entity.getContentMd(),
                 entity.getHeadline(),
                 entity.getSummary(),

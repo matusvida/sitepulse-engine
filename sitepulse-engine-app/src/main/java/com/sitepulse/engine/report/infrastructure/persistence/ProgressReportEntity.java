@@ -48,6 +48,9 @@ public class ProgressReportEntity {
     @Column(name = "confidence_level", nullable = false, length = 16)
     private String confidenceLevel;
 
+    @Column(name = "language", nullable = false, length = 8)
+    private String language;
+
     @Column(name = "content_md", columnDefinition = "text")
     private String contentMd;
 

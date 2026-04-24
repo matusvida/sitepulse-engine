@@ -23,6 +23,7 @@ public class ProgressReport {
     private final String generationOrigin;
     private final String periodKey;
     private final String confidenceLevel;
+    private final String language;
     private final String contentMd;
     private final String headline;
     private final String summary;
@@ -39,6 +40,7 @@ public class ProgressReport {
             String generationOrigin,
             String periodKey,
             String confidenceLevel,
+            String language,
             String contentMd,
             String headline,
             String summary,
@@ -62,6 +64,7 @@ public class ProgressReport {
                 generationOrigin,
                 periodKey,
                 confidenceLevel,
+                language,
                 contentMd,
                 headline,
                 summary,
@@ -81,6 +84,7 @@ public class ProgressReport {
             String generationOrigin,
             String periodKey,
             String confidenceLevel,
+            String language,
             String contentMd,
             String headline,
             String summary,
@@ -98,6 +102,7 @@ public class ProgressReport {
                 generationOrigin,
                 periodKey,
                 confidenceLevel,
+                language,
                 contentMd,
                 headline,
                 summary,

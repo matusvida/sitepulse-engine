@@ -107,6 +107,8 @@ sitepulse:
   detection-sweep-cron: ${DETECTION_SWEEP_CRON:0 5/10 * * * *}
   detection-provider: ${DETECTION_PROVIDER:openai}
   analysis-cron: ${ANALYSIS_CRON:0 0 2 * * *}
+  daily-report-cron: ${DAILY_REPORT_CRON:0 20 2 * * *}
+  weekly-report-cron: ${WEEKLY_REPORT_CRON:0 30 2 * * MON}
   min-detections-active-hour: ${MIN_DETECTIONS_ACTIVE_HOUR:3}
   dropbox-token: ${DROPBOX_TOKEN:}
   dropbox-app-key: ${DROPBOX_APP_KEY:}

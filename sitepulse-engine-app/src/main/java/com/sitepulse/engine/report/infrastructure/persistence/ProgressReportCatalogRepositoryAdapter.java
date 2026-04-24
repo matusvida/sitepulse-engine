@@ -24,6 +24,7 @@ public class ProgressReportCatalogRepositoryAdapter implements ProgressReportCat
         entity.setGenerationOrigin(report.getGenerationOrigin());
         entity.setPeriodKey(report.getPeriodKey());
         entity.setConfidenceLevel(report.getConfidenceLevel());
+        entity.setLanguage(report.getLanguage());
         entity.setContentMd(report.getContentMd());
         entity.setHeadline(report.getHeadline());
         entity.setSummary(report.getSummary());
@@ -50,8 +51,8 @@ public class ProgressReportCatalogRepositoryAdapter implements ProgressReportCat
     }
 
     @Override
-    public Optional<ProgressReport> findByProjectAndPeriodKey(Integer projectId, String periodKey) {
-        return progressReportRepository.findByProjectIdAndPeriodKey(projectId, periodKey).map(this::toDomain);
+    public Optional<ProgressReport> findByProjectAndPeriodKeyAndLanguage(Integer projectId, String periodKey, String language) {
+        return progressReportRepository.findByProjectIdAndPeriodKeyAndLanguage(projectId, periodKey, language).map(this::toDomain);
     }
 
     private ProgressReport toDomain(ProgressReportEntity entity) {
@@ -62,6 +63,7 @@ public class ProgressReportCatalogRepositoryAdapter implements ProgressReportCat
                 entity.getGenerationOrigin(),
                 entity.getPeriodKey(),
                 entity.getConfidenceLevel(),
+                entity.getLanguage(),
                 entity.getContentMd(),
                 entity.getHeadline(),
                 entity.getSummary(),

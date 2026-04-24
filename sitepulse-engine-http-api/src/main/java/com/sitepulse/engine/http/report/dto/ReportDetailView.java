@@ -20,6 +20,7 @@ public class ReportDetailView {
     private String reportType;
     private String generationOrigin;
     private String confidenceLevel;
+    private String language;
     private String periodLabel;
     private String headline;
     private String summary;
