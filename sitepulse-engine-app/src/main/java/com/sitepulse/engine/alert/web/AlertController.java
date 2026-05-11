@@ -12,6 +12,7 @@ import com.sitepulse.engine.http.alert.dto.AlertView;
 import com.sitepulse.engine.project.application.ProjectLookupService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -23,6 +24,7 @@ public class AlertController implements AlertApi {
     private final UpdateAlertStatusUseCase updateAlertStatusUseCase;
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public List<AlertView> listAlerts(Integer projectId, String type, String severity, String status) {
         projectLookupService.requireProject(projectId);
         return listProjectAlertsQuery.list(projectId, type, severity, status).stream()
@@ -31,6 +33,7 @@ public class AlertController implements AlertApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public AlertView updateAlert(Integer projectId, Integer alertId, AlertStatusUpdateRequest request) {
         projectLookupService.requireProject(projectId);
         AlertStatus status = parseAlertStatus(request.getStatus());

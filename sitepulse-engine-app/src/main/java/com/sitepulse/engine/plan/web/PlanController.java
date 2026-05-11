@@ -24,6 +24,7 @@ import com.sitepulse.engine.plan.domain.enums.MilestoneStatus;
 import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -40,6 +41,7 @@ public class PlanController implements PlanApi {
     private final RunPlanCheckUseCase runPlanCheckUseCase;
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public PlanUploadView upload(Integer projectId, MultipartFile file) {
         validateFile(file);
         try {
@@ -57,6 +59,7 @@ public class PlanController implements PlanApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public PlanDetailView getPlan(Integer projectId) {
         return getLatestPlanQuery.get(projectId)
                 .map(result -> new PlanDetailView(
@@ -72,11 +75,13 @@ public class PlanController implements PlanApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public List<PlanMilestoneView> listMilestones(Integer projectId) {
         return listPlanMilestonesQuery.list(projectId).stream().map(this::toMilestoneView).toList();
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public ActionResponse updateMilestone(
             Integer projectId,
             Integer milestoneId,
@@ -94,6 +99,7 @@ public class PlanController implements PlanApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public PlanCheckView check(Integer projectId) {
         PlanCheckResult result = runPlanCheckUseCase.run(projectId);
         return new PlanCheckView(

@@ -16,6 +16,7 @@ import com.sitepulse.engine.report.application.usecase.ListProjectReportsQuery;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -27,6 +28,7 @@ public class ReportController implements ReportApi {
     private final GetProjectReportQuery getProjectReportQuery;
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public ReportDetailView generate(Integer projectId, GenerateReportRequest request) {
         return toReportView(generateProgressReportUseCase.generate(
                 projectId,
@@ -37,6 +39,7 @@ public class ReportController implements ReportApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public ReportDetailView generateDaily(Integer projectId, GenerateDailyReportRequest request) {
         return toReportView(generateProgressReportUseCase.generateAutomaticDailyOnDemand(
                 projectId,
@@ -46,6 +49,7 @@ public class ReportController implements ReportApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public ReportDetailView generateWeekly(Integer projectId, GenerateWeeklyReportRequest request) {
         return toReportView(generateProgressReportUseCase.generateAutomaticWeeklyOnDemand(
                 projectId,
@@ -55,6 +59,7 @@ public class ReportController implements ReportApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public List<ReportSummaryView> list(
             Integer projectId,
             int limit,
@@ -66,6 +71,7 @@ public class ReportController implements ReportApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public ReportDetailView detail(Integer projectId, Integer reportId) {
         return toReportView(getProjectReportQuery.get(projectId, reportId));
     }

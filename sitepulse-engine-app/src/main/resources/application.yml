@@ -124,6 +124,16 @@ sitepulse:
     target-quality: ${IMAGE_WEB_SNAPSHOTS_TARGET_QUALITY:75}
     target-format: ${IMAGE_WEB_SNAPSHOTS_TARGET_FORMAT:WEBP}
     freeze-time: ${IMAGE_WEB_SNAPSHOTS_FREEZE_TIME:17:00:00}
+  auth:
+    frontend-base-url: ${AUTH_FRONTEND_BASE_URL:http://localhost:3000}
+    session-cookie-name: ${AUTH_SESSION_COOKIE_NAME:sitepulse_session}
+    session-cookie-secure: ${AUTH_SESSION_COOKIE_SECURE:false}
+    session-cookie-same-site: ${AUTH_SESSION_COOKIE_SAME_SITE:Lax}
+    session-ttl-hours: ${AUTH_SESSION_TTL_HOURS:168}
+    invitation-ttl-hours: ${AUTH_INVITATION_TTL_HOURS:72}
+    password-reset-ttl-hours: ${AUTH_PASSWORD_RESET_TTL_HOURS:1}
+    initial-admin-email: ${AUTH_INITIAL_ADMIN_EMAIL:}
+    initial-admin-password: ${AUTH_INITIAL_ADMIN_PASSWORD:}
 
 logging:
   level:

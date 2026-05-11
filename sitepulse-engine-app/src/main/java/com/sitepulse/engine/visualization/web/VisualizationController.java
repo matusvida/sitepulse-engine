@@ -7,6 +7,7 @@ import com.sitepulse.engine.visualization.application.result.VisualizationBatchR
 import com.sitepulse.engine.visualization.application.usecase.GenerateDetectionVisualizationUseCase;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -16,6 +17,7 @@ public class VisualizationController implements VisualizationApi {
     private final GenerateDetectionVisualizationUseCase generateDetectionVisualizationUseCase;
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public VisualizationResultView visualize(Integer projectId, VisualizeRequest request) {
         VisualizationBatchResult result = generateDetectionVisualizationUseCase.generate(
                 projectId,

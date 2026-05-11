@@ -47,7 +47,8 @@ public record SitePulseProperties(
         @NotBlank String openaiModel,
         @NotNull Long maxImageBytes,
         @NotBlank String pythonYoloBaseUrl,
-        @Valid ImageWebSnapshotsProperties imageWebSnapshots
+        @Valid ImageWebSnapshotsProperties imageWebSnapshots,
+        @Valid AuthProperties auth
 ) {
 
     public String[] corsOriginArray() {
@@ -78,6 +79,37 @@ public record SitePulseProperties(
             @NotNull ImageFormat targetFormat,
             @NotNull LocalTime freezeTime
     ) {
+    }
+
+    public record AuthProperties(
+            @NotBlank String frontendBaseUrl,
+            @NotBlank String sessionCookieName,
+            boolean sessionCookieSecure,
+            @NotBlank String sessionCookieSameSite,
+            @NotNull Integer sessionTtlHours,
+            @NotNull Integer invitationTtlHours,
+            @NotNull Integer passwordResetTtlHours,
+            String initialAdminEmail,
+            String initialAdminPassword
+    ) {
+        public Duration sessionTtl() {
+            return Duration.ofHours(sessionTtlHours);
+        }
+
+        public Duration invitationTtl() {
+            return Duration.ofHours(invitationTtlHours);
+        }
+
+        public Duration passwordResetTtl() {
+            return Duration.ofHours(passwordResetTtlHours);
+        }
+
+        public boolean hasSeededAdmin() {
+            return initialAdminEmail != null
+                    && !initialAdminEmail.isBlank()
+                    && initialAdminPassword != null
+                    && !initialAdminPassword.isBlank();
+        }
     }
 
     public Map<String, Double> perClassThresholds(ObjectMapper objectMapper) {

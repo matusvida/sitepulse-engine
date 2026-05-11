@@ -17,4 +17,8 @@ public class ListProjectsQuery {
     public List<ProjectResult> get() {
         return projectCatalogRepository.findAll().stream().map(projectResultMapper::toResult).toList();
     }
+
+    public ProjectResult toResult(com.sitepulse.engine.project.domain.model.Project project) {
+        return projectResultMapper.toResult(project);
+    }
 }

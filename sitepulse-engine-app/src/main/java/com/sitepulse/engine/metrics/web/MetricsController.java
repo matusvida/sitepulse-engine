@@ -18,6 +18,7 @@ import com.sitepulse.engine.metrics.application.usecase.ListWeeklyMetricsQuery;
 import com.sitepulse.engine.metrics.application.usecase.RunProjectAnalysisUseCase;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -31,6 +32,7 @@ public class MetricsController implements MetricsApi {
     private final GetActivitySummaryQuery getActivitySummaryQuery;
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public List<DailyMetricView> dailyMetrics(Integer projectId, int days) {
         return listDailyMetricsQuery.list(projectId, days).stream()
                 .map(this::toDailyMetricView)
@@ -38,6 +40,7 @@ public class MetricsController implements MetricsApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public List<WeeklyMetricView> weeklyMetrics(Integer projectId, int weeks) {
         return listWeeklyMetricsQuery.list(projectId, weeks).stream()
                 .map(this::toWeeklyMetricView)
@@ -45,12 +48,14 @@ public class MetricsController implements MetricsApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public ActionResponse generateMetrics(Integer projectId, MetricsGenerateRequest request) {
         runProjectAnalysisUseCase.run(projectId, request == null || request.getLookbackDays() == null ? 30 : request.getLookbackDays());
         return new ActionResponse("accepted", "Metrics generation started", projectId);
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public List<ActivityHeatmapPointView> activityHeatmap(Integer projectId) {
         return getActivityHeatmapQuery.get(projectId).stream()
                 .map(this::toActivityHeatmapView)
@@ -58,6 +63,7 @@ public class MetricsController implements MetricsApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public ActivitySummaryView activitySummary(Integer projectId, int days) {
         return toActivitySummaryView(getActivitySummaryQuery.get(projectId, days));
     }

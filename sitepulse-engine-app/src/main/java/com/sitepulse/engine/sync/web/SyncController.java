@@ -7,6 +7,7 @@ import com.sitepulse.engine.sync.application.result.SyncStatusResult;
 import com.sitepulse.engine.sync.application.usecase.GetProjectSyncStatusQuery;
 import com.sitepulse.engine.sync.application.usecase.TriggerProjectSyncUseCase;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -17,6 +18,7 @@ public class SyncController implements SyncApi {
     private final TriggerProjectSyncUseCase triggerProjectSyncUseCase;
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public SyncStatusView syncStatus(Integer projectId) {
         SyncStatusResult result = getProjectSyncStatusQuery.getLatest(projectId);
         if (result.isNeverRun()) {
@@ -42,6 +44,7 @@ public class SyncController implements SyncApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public ActionResponse triggerSync(Integer projectId) {
         triggerProjectSyncUseCase.trigger(projectId);
         return new ActionResponse("accepted", "Sync job started in background", projectId);

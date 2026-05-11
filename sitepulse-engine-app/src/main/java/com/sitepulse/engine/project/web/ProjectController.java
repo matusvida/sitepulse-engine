@@ -1,5 +1,7 @@
 package com.sitepulse.engine.project.web;
 
+import com.sitepulse.engine.auth.application.AuthenticatedUserAccessor;
+import com.sitepulse.engine.auth.application.ProjectAccessAuthorizationService;
 import com.sitepulse.engine.http.common.dto.ActionResponse;
 import com.sitepulse.engine.http.project.api.ProjectApi;
 import com.sitepulse.engine.http.project.dto.CameraCreateRequest;
@@ -31,6 +33,7 @@ import com.sitepulse.engine.project.application.usecase.UpdateProjectUseCase;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -41,6 +44,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProjectController implements ProjectApi {
 
     private final ListProjectsQuery listProjectsQuery;
+    private final AuthenticatedUserAccessor authenticatedUserAccessor;
+    private final ProjectAccessAuthorizationService projectAccessAuthorizationService;
     private final GetProjectQuery getProjectQuery;
     private final CreateProjectUseCase createProjectUseCase;
     private final UpdateProjectUseCase updateProjectUseCase;
@@ -54,10 +59,13 @@ public class ProjectController implements ProjectApi {
 
     @Override
     public List<ProjectView> listProjects() {
-        return listProjectsQuery.get().stream().map(this::toProjectView).toList();
+        return projectAccessAuthorizationService.authorizedProjects(authenticatedUserAccessor.requireCurrentUser()).stream()
+                .map(project -> toProjectView(listProjectsQuery.toResult(project)))
+                .toList();
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public ProjectView getProject(Integer projectId) {
         return toProjectView(getProjectQuery.get(projectId));
     }
@@ -75,23 +83,27 @@ public class ProjectController implements ProjectApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public List<CameraView> listCameras(Integer projectId) {
         return listProjectCamerasQuery.get(projectId).stream().map(this::toCameraView).toList();
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public CameraView createCamera(Integer projectId, CameraCreateRequest request) {
         return toCameraView(createCameraUseCase.create(
                 new CreateCameraCommand(projectId, request.getName(), request.getDropboxPath(), request.getKeyPrefix(), request.getRoiPolygon(), request.getDropOutside())));
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public CameraView updateCamera(Integer projectId, Integer cameraId, CameraUpdateRequest request) {
         return toCameraView(updateCameraUseCase.update(
                 new UpdateCameraCommand(projectId, cameraId, request.getDropboxPath(), request.getKeyPrefix(), request.getRoiPolygon(), request.getDropOutside())));
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public List<String> snapshotDates(Integer projectId) {
         return listSnapshotDatesQuery.list(projectId).stream()
                 .map(LocalDate::toString)
@@ -99,6 +111,7 @@ public class ProjectController implements ProjectApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public List<ProjectSnapshotView> snapshots(Integer projectId) {
         return listProjectSnapshotsQuery.list(projectId).stream()
                 .map(this::toProjectSnapshotView)
@@ -106,6 +119,7 @@ public class ProjectController implements ProjectApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public ActionResponse backfillSnapshots(Integer projectId, Integer cameraId, boolean force) {
         backfillProjectDailySnapshotsUseCase.backfill(projectId, cameraId, force);
         return new ActionResponse(
@@ -118,6 +132,7 @@ public class ProjectController implements ProjectApi {
     }
 
     @Override
+    @PreAuthorize("@projectAccessAuthorizationService.hasProjectAccess(authentication, #projectId)")
     public ResponseEntity<byte[]> snapshot(Integer projectId, @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         ProjectSnapshotResult snapshot = getProjectSnapshotQuery.get(projectId, date);
         return ResponseEntity.ok().contentType(MediaType.parseMediaType(snapshot.getMediaType())).body(snapshot.getContent());

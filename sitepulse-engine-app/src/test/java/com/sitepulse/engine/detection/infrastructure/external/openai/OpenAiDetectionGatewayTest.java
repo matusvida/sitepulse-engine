@@ -231,7 +231,18 @@ class OpenAiDetectionGatewayTest {
                 "gpt-4.1",
                 52_428_800L,
                 "http://python-yolo:8000",
-                new SitePulseProperties.ImageWebSnapshotsProperties(false, 1920, 75, ImageFormat.WEBP, java.time.LocalTime.of(17, 0))
+                new SitePulseProperties.ImageWebSnapshotsProperties(false, 1920, 75, ImageFormat.WEBP, java.time.LocalTime.of(17, 0)),
+                new SitePulseProperties.AuthProperties(
+                        "http://localhost:3000",
+                        "sitepulse_session",
+                        false,
+                        "Lax",
+                        168,
+                        72,
+                        1,
+                        null,
+                        null
+                )
         );
     }
 }
