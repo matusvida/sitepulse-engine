@@ -1,8 +1,7 @@
 package com.sitepulse.engine.auth.application;
 
-import com.sitepulse.engine.auth.infrastructure.persistence.UserEntity;
-import com.sitepulse.engine.auth.infrastructure.persistence.UserProjectAccessEntity;
-import com.sitepulse.engine.auth.infrastructure.persistence.UserProjectAccessRepository;
+import com.sitepulse.engine.auth.domain.model.UserAccount;
+import com.sitepulse.engine.auth.domain.port.UserProjectAccessStore;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -11,19 +10,17 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AuthUserResultFactory {
 
-    private final UserProjectAccessRepository userProjectAccessRepository;
+    private final UserProjectAccessStore userProjectAccessStore;
 
-    public AuthUserResult create(UserEntity user) {
-        List<Integer> projectIds = userProjectAccessRepository.findByUserId(user.getId()).stream()
-                .map(UserProjectAccessEntity::getProjectId)
-                .toList();
+    public AuthUserResult create(UserAccount user) {
+        List<Integer> projectIds = userProjectAccessStore.findProjectIdsByUserId(user.id());
         return new AuthUserResult(
-                user.getId(),
-                user.getEmail(),
-                user.getFirstName(),
-                user.getLastName(),
-                user.getRole(),
-                user.getStatus(),
+                user.id(),
+                user.email(),
+                user.firstName(),
+                user.lastName(),
+                user.role(),
+                user.status(),
                 projectIds
         );
     }

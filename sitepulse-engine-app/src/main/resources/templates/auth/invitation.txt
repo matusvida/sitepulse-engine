@@ -1,0 +1,12 @@
+{{appName}} invitation
+
+Hi {{greetingName}},
+
+You've been invited to access {{appName}} with {{email}}.
+
+Set your password and activate your account here:
+{{actionUrl}}
+
+This invitation expires in {{expiryHours}} hours.
+
+If you were not expecting this invitation, you can safely ignore this email.

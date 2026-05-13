@@ -2,8 +2,8 @@ package com.sitepulse.engine.auth.application;
 
 import com.sitepulse.engine.auth.domain.UserRole;
 import com.sitepulse.engine.auth.domain.UserStatus;
-import com.sitepulse.engine.auth.infrastructure.persistence.UserEntity;
-import com.sitepulse.engine.auth.infrastructure.persistence.UserRepository;
+import com.sitepulse.engine.auth.domain.model.UserAccount;
+import com.sitepulse.engine.auth.domain.port.UserAccountStore;
 import com.sitepulse.engine.config.SitePulseProperties;
 import java.time.OffsetDateTime;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 public class AdminBootstrapRunner implements ApplicationRunner {
 
     private final SitePulseProperties properties;
-    private final UserRepository userRepository;
+    private final UserAccountStore userAccountStore;
     private final PasswordHasher passwordHasher;
 
     @Override
@@ -26,19 +26,12 @@ public class AdminBootstrapRunner implements ApplicationRunner {
         if (!properties.auth().hasSeededAdmin()) {
             return;
         }
-        String email = properties.auth().initialAdminEmail().trim().toLowerCase();
-        if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
+        var email = new com.sitepulse.engine.auth.domain.model.EmailAddress(properties.auth().initialAdminEmail().trim().toLowerCase());
+        if (userAccountStore.findByEmail(email).isPresent()) {
             return;
         }
-        userRepository.save(UserEntity.builder()
-                .email(email)
-                .passwordHash(passwordHasher.hash(properties.auth().initialAdminPassword()))
-                .role(UserRole.ADMIN)
-                .status(UserStatus.ACTIVE)
-                .createdAt(OffsetDateTime.now())
-                .updatedAt(OffsetDateTime.now())
-                .lastLoginAt(null)
-                .build());
-        log.info("Seeded initial admin user {}", email);
+        OffsetDateTime now = OffsetDateTime.now();
+        userAccountStore.save(UserAccount.seededAdmin(email.value(), passwordHasher.hash(properties.auth().initialAdminPassword()), now));
+        log.info("Seeded initial admin user {}", email.value());
     }
 }

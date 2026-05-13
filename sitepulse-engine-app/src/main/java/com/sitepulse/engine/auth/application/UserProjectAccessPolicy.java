@@ -1,31 +1,26 @@
 package com.sitepulse.engine.auth.application;
 
+import com.sitepulse.engine.auth.domain.port.UserProjectAccessStore;
 import com.sitepulse.engine.auth.exception.ForbiddenException;
-import com.sitepulse.engine.auth.infrastructure.persistence.UserProjectAccessEntity;
-import com.sitepulse.engine.auth.infrastructure.persistence.UserProjectAccessRepository;
 import com.sitepulse.engine.project.domain.model.Project;
 import com.sitepulse.engine.project.domain.port.ProjectCatalogRepository;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class ProjectAccessAuthorizationService {
+public class UserProjectAccessPolicy {
 
-    private final UserProjectAccessRepository userProjectAccessRepository;
+    private final UserProjectAccessStore userProjectAccessStore;
     private final ProjectCatalogRepository projectCatalogRepository;
 
     public List<Project> authorizedProjects(AuthenticatedUser authenticatedUser) {
         if (authenticatedUser.isAdmin()) {
             return projectCatalogRepository.findAll();
         }
-        Set<Integer> accessibleProjectIds = userProjectAccessRepository.findByUserId(authenticatedUser.id()).stream()
-                .map(UserProjectAccessEntity::getProjectId)
-                .collect(Collectors.toSet());
+        Set<Integer> accessibleProjectIds = userProjectAccessStore.findProjectIdSetByUserId(authenticatedUser.id());
         return projectCatalogRepository.findAll().stream()
                 .filter(project -> accessibleProjectIds.contains(project.getId()))
                 .toList();
@@ -35,7 +30,7 @@ public class ProjectAccessAuthorizationService {
         if (authenticatedUser.isAdmin()) {
             return;
         }
-        if (!userProjectAccessRepository.existsByUserIdAndProjectId(authenticatedUser.id(), projectId)) {
+        if (!hasProjectAccess(authenticatedUser, projectId)) {
             throw new ForbiddenException("You do not have access to this project");
         }
     }
@@ -46,12 +41,8 @@ public class ProjectAccessAuthorizationService {
         }
     }
 
-    public boolean hasProjectAccess(Authentication authentication, Integer projectId) {
-        if (!(authentication != null && authentication.getPrincipal() instanceof com.sitepulse.engine.auth.infrastructure.security.SessionPrincipal principal)) {
-            return false;
-        }
-        AuthenticatedUser authenticatedUser = principal.user();
+    public boolean hasProjectAccess(AuthenticatedUser authenticatedUser, Integer projectId) {
         return authenticatedUser.isAdmin()
-                || userProjectAccessRepository.existsByUserIdAndProjectId(authenticatedUser.id(), projectId);
+                || userProjectAccessStore.existsByUserIdAndProjectId(authenticatedUser.id(), projectId);
     }
 }

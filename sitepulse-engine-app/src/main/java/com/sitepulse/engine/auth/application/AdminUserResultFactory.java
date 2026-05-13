@@ -1,22 +1,22 @@
 package com.sitepulse.engine.auth.application;
 
-import com.sitepulse.engine.auth.infrastructure.persistence.UserEntity;
+import com.sitepulse.engine.auth.domain.model.UserAccount;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
 @Component
 public class AdminUserResultFactory {
 
-    public AdminUserResult create(UserEntity user, List<Integer> projectIds, String invitationPreviewUrl) {
+    public AdminUserResult create(UserAccount user, List<Integer> projectIds, String invitationPreviewUrl) {
         return new AdminUserResult(
-                user.getId(),
-                user.getEmail(),
-                user.getFirstName(),
-                user.getLastName(),
-                user.getRole(),
-                user.getStatus(),
+                user.id(),
+                user.email(),
+                user.firstName(),
+                user.lastName(),
+                user.role(),
+                user.status(),
                 projectIds,
-                user.getLastLoginAt(),
+                user.lastLoginAt(),
                 invitationPreviewUrl
         );
     }

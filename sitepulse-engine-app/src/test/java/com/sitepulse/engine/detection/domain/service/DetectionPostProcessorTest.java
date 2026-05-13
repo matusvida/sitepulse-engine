@@ -117,7 +117,18 @@ class DetectionPostProcessorTest {
                         72,
                         1,
                         null,
-                        null
+                        null,
+                        new SitePulseProperties.MailProperties(
+                                true,
+                                "SitePulse",
+                                "SitePulse <noreply@example.com>",
+                                null,
+                                new SitePulseProperties.ResendProperties(
+                                        true,
+                                        "https://api.resend.com",
+                                        "re_test"
+                                )
+                        )
                 )
         );
     }

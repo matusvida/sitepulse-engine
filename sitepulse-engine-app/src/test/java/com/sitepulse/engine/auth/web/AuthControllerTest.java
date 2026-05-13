@@ -189,7 +189,7 @@ class AuthControllerTest {
         private SessionLoginResult result;
 
         private StubLoginWithPasswordUseCase() {
-            super(null, null, null, null);
+            super(null, null, null, null); // constructor kept intentionally aligned with production signature
         }
 
         @Override
@@ -225,7 +225,7 @@ class AuthControllerTest {
         private AuthUserResult result;
 
         private StubGetCurrentAuthSessionQuery() {
-            super(null, null);
+            super(null, null); // constructor kept intentionally aligned with production signature
         }
 
         @Override

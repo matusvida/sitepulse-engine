@@ -90,7 +90,8 @@ public record SitePulseProperties(
             @NotNull Integer invitationTtlHours,
             @NotNull Integer passwordResetTtlHours,
             String initialAdminEmail,
-            String initialAdminPassword
+            String initialAdminPassword,
+            @Valid MailProperties mail
     ) {
         public Duration sessionTtl() {
             return Duration.ofHours(sessionTtlHours);
@@ -110,6 +111,39 @@ public record SitePulseProperties(
                     && initialAdminPassword != null
                     && !initialAdminPassword.isBlank();
         }
+    }
+
+    public record MailProperties(
+            boolean enabled,
+            @NotBlank String appName,
+            String from,
+            String replyTo,
+            @Valid ResendProperties resend
+    ) {
+        public boolean canUseResend() {
+            return enabled
+                    && resend != null
+                    && resend.enabled()
+                    && resend.apiKey() != null
+                    && !resend.apiKey().isBlank()
+                    && from != null
+                    && !from.isBlank();
+        }
+
+        public String normalizedFrom() {
+            return from == null ? null : from.trim();
+        }
+
+        public String normalizedReplyTo() {
+            return replyTo == null || replyTo.isBlank() ? null : replyTo.trim();
+        }
+    }
+
+    public record ResendProperties(
+            boolean enabled,
+            @NotBlank String baseUrl,
+            String apiKey
+    ) {
     }
 
     public Map<String, Double> perClassThresholds(ObjectMapper objectMapper) {

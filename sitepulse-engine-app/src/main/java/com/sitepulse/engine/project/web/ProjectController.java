@@ -1,7 +1,7 @@
 package com.sitepulse.engine.project.web;
 
 import com.sitepulse.engine.auth.application.AuthenticatedUserAccessor;
-import com.sitepulse.engine.auth.application.ProjectAccessAuthorizationService;
+import com.sitepulse.engine.auth.application.UserProjectAccessPolicy;
 import com.sitepulse.engine.http.common.dto.ActionResponse;
 import com.sitepulse.engine.http.project.api.ProjectApi;
 import com.sitepulse.engine.http.project.dto.CameraCreateRequest;
@@ -45,7 +45,7 @@ public class ProjectController implements ProjectApi {
 
     private final ListProjectsQuery listProjectsQuery;
     private final AuthenticatedUserAccessor authenticatedUserAccessor;
-    private final ProjectAccessAuthorizationService projectAccessAuthorizationService;
+    private final UserProjectAccessPolicy userProjectAccessPolicy;
     private final GetProjectQuery getProjectQuery;
     private final CreateProjectUseCase createProjectUseCase;
     private final UpdateProjectUseCase updateProjectUseCase;
@@ -59,7 +59,7 @@ public class ProjectController implements ProjectApi {
 
     @Override
     public List<ProjectView> listProjects() {
-        return projectAccessAuthorizationService.authorizedProjects(authenticatedUserAccessor.requireCurrentUser()).stream()
+        return userProjectAccessPolicy.authorizedProjects(authenticatedUserAccessor.requireCurrentUser()).stream()
                 .map(project -> toProjectView(listProjectsQuery.toResult(project)))
                 .toList();
     }

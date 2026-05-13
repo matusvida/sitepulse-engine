@@ -134,6 +134,15 @@ sitepulse:
     password-reset-ttl-hours: ${AUTH_PASSWORD_RESET_TTL_HOURS:1}
     initial-admin-email: ${AUTH_INITIAL_ADMIN_EMAIL:}
     initial-admin-password: ${AUTH_INITIAL_ADMIN_PASSWORD:}
+    mail:
+      enabled: ${AUTH_MAIL_ENABLED:true}
+      app-name: ${AUTH_MAIL_APP_NAME:SitePulse}
+      from: ${AUTH_MAIL_FROM:}
+      reply-to: ${AUTH_MAIL_REPLY_TO:}
+      resend:
+        enabled: ${AUTH_RESEND_ENABLED:true}
+        base-url: ${AUTH_RESEND_BASE_URL:https://api.resend.com}
+        api-key: ${RESEND_API_KEY:}
 
 logging:
   level:

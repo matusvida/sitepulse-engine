@@ -1,10 +1,10 @@
 package com.sitepulse.engine.auth.application;
 
-import com.sitepulse.engine.auth.infrastructure.persistence.UserEntity;
+import com.sitepulse.engine.auth.domain.model.AuthMailRecipient;
 
 public interface AuthMailer {
 
-    void sendInvitation(UserEntity user, String invitationUrl);
+    void sendInvitation(AuthMailRecipient recipient, String invitationUrl);
 
-    void sendPasswordReset(UserEntity user, String resetUrl);
+    void sendPasswordReset(AuthMailRecipient recipient, String resetUrl);
 }

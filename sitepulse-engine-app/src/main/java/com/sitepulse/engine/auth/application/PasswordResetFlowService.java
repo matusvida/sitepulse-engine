@@ -1,11 +1,12 @@
 package com.sitepulse.engine.auth.application;
 
 import com.sitepulse.engine.auth.domain.UserStatus;
+import com.sitepulse.engine.auth.domain.model.PasswordResetToken;
+import com.sitepulse.engine.auth.domain.model.RawToken;
+import com.sitepulse.engine.auth.domain.model.UserAccount;
+import com.sitepulse.engine.auth.domain.port.PasswordResetTokenStore;
+import com.sitepulse.engine.auth.domain.port.UserAccountStore;
 import com.sitepulse.engine.auth.exception.InvalidTokenException;
-import com.sitepulse.engine.auth.infrastructure.persistence.PasswordResetTokenEntity;
-import com.sitepulse.engine.auth.infrastructure.persistence.PasswordResetTokenRepository;
-import com.sitepulse.engine.auth.infrastructure.persistence.UserEntity;
-import com.sitepulse.engine.auth.infrastructure.persistence.UserRepository;
 import com.sitepulse.engine.config.SitePulseProperties;
 import java.time.OffsetDateTime;
 import lombok.RequiredArgsConstructor;
@@ -16,8 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PasswordResetFlowService {
 
-    private final UserRepository userRepository;
-    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final UserAccountStore userAccountStore;
+    private final PasswordResetTokenStore passwordResetTokenStore;
     private final PasswordHasher passwordHasher;
     private final TokenService tokenService;
     private final SitePulseProperties properties;
@@ -26,44 +27,43 @@ public class PasswordResetFlowService {
 
     @Transactional
     public void sendPasswordReset(String email) {
-        userRepository.findByEmailIgnoreCase(emailAddressNormalizer.normalize(email)).ifPresent(user -> {
-            if (user.getStatus() == UserStatus.DISABLED) {
+        userAccountStore.findByEmail(emailAddressNormalizer.normalize(email)).ifPresent(user -> {
+            if (user.status() == UserStatus.DISABLED) {
                 return;
             }
-            expirePasswordResetTokens(user.getId());
-            String rawToken = tokenService.generateOpaqueToken();
-            passwordResetTokenRepository.save(PasswordResetTokenEntity.builder()
-                    .userId(user.getId())
-                    .tokenHash(tokenService.hash(rawToken))
-                    .expiresAt(OffsetDateTime.now().plus(properties.auth().passwordResetTtl()))
-                    .createdAt(OffsetDateTime.now())
-                    .build());
-            authMailer.sendPasswordReset(user, properties.auth().frontendBaseUrl() + "/reset-password?token=" + rawToken);
+            expirePasswordResetTokens(user.id());
+            OffsetDateTime now = OffsetDateTime.now();
+            RawToken rawToken = tokenService.generateOpaqueToken();
+            passwordResetTokenStore.save(PasswordResetToken.create(
+                    user.id(),
+                    tokenService.hash(rawToken),
+                    now.plus(properties.auth().passwordResetTtl()),
+                    now
+            ));
+            authMailer.sendPasswordReset(user.asMailRecipient(), properties.auth().frontendBaseUrl() + "/reset-password?token=" + rawToken.value());
         });
     }
 
     @Transactional
     public void resetPassword(String token, String password) {
-        PasswordResetTokenEntity resetToken = passwordResetTokenRepository.findByTokenHash(tokenService.hash(token))
+        OffsetDateTime now = OffsetDateTime.now();
+        PasswordResetToken resetToken = passwordResetTokenStore.findByTokenHash(tokenService.hash(token))
                 .orElseThrow(() -> new InvalidTokenException("Password reset link is invalid"));
-        if (resetToken.getUsedAt() != null || resetToken.getExpiresAt().isBefore(OffsetDateTime.now())) {
+        if (resetToken.isUnavailableAt(now)) {
             throw new InvalidTokenException("Password reset link is expired or already used");
         }
-        UserEntity user = userRepository.findById(resetToken.getUserId())
+        UserAccount user = userAccountStore.findById(resetToken.userId())
                 .orElseThrow(() -> new InvalidTokenException("Password reset user does not exist"));
-        if (user.getStatus() == UserStatus.DISABLED) {
+        if (user.status() == UserStatus.DISABLED) {
             throw new InvalidTokenException("User account is disabled");
         }
-        user.setPasswordHash(passwordHasher.hash(password));
-        user.setStatus(UserStatus.ACTIVE);
-        user.setUpdatedAt(OffsetDateTime.now());
-        resetToken.setUsedAt(OffsetDateTime.now());
-        userRepository.save(user);
-        passwordResetTokenRepository.save(resetToken);
+        userAccountStore.save(user.resetPassword(passwordHasher.hash(password), now));
+        passwordResetTokenStore.save(resetToken.markUsed(now));
     }
 
     private void expirePasswordResetTokens(Integer userId) {
-        passwordResetTokenRepository.findByUserIdAndUsedAtIsNull(userId)
-                .forEach(token -> token.setUsedAt(OffsetDateTime.now()));
+        OffsetDateTime now = OffsetDateTime.now();
+        passwordResetTokenStore.findActiveByUserId(userId)
+                .forEach(token -> passwordResetTokenStore.save(token.markUsed(now)));
     }
 }
