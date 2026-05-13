@@ -9,6 +9,7 @@ import com.sitepulse.engine.report.application.service.DailyReportSummary;
 import com.sitepulse.engine.report.application.service.DailyReportSummaryBuilder;
 import com.sitepulse.engine.report.application.service.ReportEvidenceQueryService;
 import com.sitepulse.engine.report.application.service.ReportCompositionService;
+import com.sitepulse.engine.report.application.service.StoredReportImageQueryService;
 import com.sitepulse.engine.report.application.service.WeeklyReportSummary;
 import com.sitepulse.engine.report.application.service.WeeklyReportSummaryBuilder;
 import com.sitepulse.engine.report.application.result.ProgressReportResult;
@@ -43,6 +44,7 @@ public class GenerateProgressReportUseCase {
     private final DailyReportSummaryBuilder dailyReportSummaryBuilder;
     private final WeeklyReportSummaryBuilder weeklyReportSummaryBuilder;
     private final ReportEvidenceQueryService reportEvidenceQueryService;
+    private final StoredReportImageQueryService storedReportImageQueryService;
     private final ReportCompositionService reportCompositionService;
     private final ReportResultMapper reportResultMapper;
 
@@ -224,7 +226,12 @@ public class GenerateProgressReportUseCase {
             LocalDate dateTo,
             int maxImages
     ) {
-        result.setEvidenceImages(reportEvidenceQueryService.list(projectId, dateFrom, dateTo, maxImages));
+        var storedImages = storedReportImageQueryService.list(result.getId());
+        if (!storedImages.isEmpty()) {
+            result.setEvidenceImages(storedImages);
+        } else {
+            result.setEvidenceImages(reportEvidenceQueryService.list(projectId, dateFrom, dateTo, maxImages));
+        }
         return result;
     }
 

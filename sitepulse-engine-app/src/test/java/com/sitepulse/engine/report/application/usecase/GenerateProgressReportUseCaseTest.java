@@ -3,6 +3,10 @@ package com.sitepulse.engine.report.application.usecase;
 import com.sitepulse.engine.detection.domain.model.DetectedObject;
 import com.sitepulse.engine.detection.domain.model.StoredImage;
 import com.sitepulse.engine.detection.domain.port.ProcessedImageReadModel;
+import com.sitepulse.engine.detection.infrastructure.persistence.ImageRepository;
+import com.sitepulse.engine.common.domain.enums.ImageFormat;
+import com.sitepulse.engine.common.domain.port.ObjectStorage;
+import com.sitepulse.engine.config.SitePulseProperties;
 import com.sitepulse.engine.metrics.domain.enums.DailyActivityStatus;
 import com.sitepulse.engine.metrics.domain.port.WeeklyMetricCatalogRepository;
 import com.sitepulse.engine.project.application.ProjectLookupService;
@@ -12,8 +16,11 @@ import com.sitepulse.engine.report.application.ReportResultMapper;
 import com.sitepulse.engine.report.application.result.ProgressReportResult;
 import com.sitepulse.engine.report.application.service.DailyReportSummary;
 import com.sitepulse.engine.report.application.service.DailyReportSummaryBuilder;
+import com.sitepulse.engine.report.application.service.ReportArtifactPersistenceService;
 import com.sitepulse.engine.report.application.service.ReportCompositionService;
 import com.sitepulse.engine.report.application.service.ReportEvidenceQueryService;
+import com.sitepulse.engine.report.application.service.StoredReportImageAssetService;
+import com.sitepulse.engine.report.application.service.StoredReportImageQueryService;
 import com.sitepulse.engine.report.application.service.WeeklyReportSummaryBuilder;
 import com.sitepulse.engine.report.domain.enums.ConfidenceLevel;
 import com.sitepulse.engine.report.domain.enums.WeatherSummary;
@@ -22,12 +29,19 @@ import com.sitepulse.engine.report.domain.model.ReportImageEvidence;
 import com.sitepulse.engine.report.domain.port.ProgressReportCatalogRepository;
 import com.sitepulse.engine.report.domain.port.ReportContextProvider;
 import com.sitepulse.engine.report.domain.port.ReportEvidenceImageProvider;
+import com.sitepulse.engine.report.infrastructure.persistence.ReportImageRepository;
+import com.sitepulse.engine.snapshot.application.result.CameraSnapshotProfile;
+import com.sitepulse.engine.snapshot.application.service.WebImageTransformer;
+import java.io.InputStream;
+import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -67,13 +81,15 @@ class GenerateProgressReportUseCaseTest {
                 new DailyReportSummaryBuilder(null, null, null),
                 new WeeklyReportSummaryBuilder(null, null),
                 new ReportEvidenceQueryService((projectId, dateFrom, dateTo, maxImages) -> List.of()),
+                storedReportImageQueryService(),
                 new ReportCompositionService(
                         (projectId, dateFrom, dateTo, maxImages) -> List.of(),
                         (imageData, metricsContext, milestonesContext, language) -> {
                             generatorCalled.set(true);
                             return "content";
                         },
-                        reportRepositoryReturning(existing),
+                        reportArtifactPersistenceService(reportRepositoryReturning(existing)),
+                        storedReportImageAssetService(),
                         event -> {
                         },
                         Clock.systemUTC()
@@ -218,26 +234,29 @@ class GenerateProgressReportUseCaseTest {
                     @Override
                     public List<ReportImageEvidence> gather(Integer projectId, LocalDate dateFrom, LocalDate dateTo, int maxImages) {
                         return List.of(new ReportImageEvidence(
+                                1,
                                 dateFrom.toString(),
-                                "base64",
+                                Base64.getEncoder().encodeToString("raw".getBytes()),
                                 createdAt,
                                 "bucket",
                                 "key",
                                 "url"
                         ));
-                    }
+                        }
                 }),
+                storedReportImageQueryService(),
                 new ReportCompositionService(
                         (projectId, dateFrom, dateTo, maxImages) -> List.of(new ReportImageEvidence(
+                                1,
                                 dateFrom.toString(),
-                                "base64",
+                                Base64.getEncoder().encodeToString("raw".getBytes()),
                                 createdAt,
                                 "bucket",
                                 "key",
                                 "url"
                         )),
                         (imageData, metricsContext, milestonesContext, language) -> "content",
-                        new ProgressReportCatalogRepository() {
+                        reportArtifactPersistenceService(new ProgressReportCatalogRepository() {
                             @Override
                             public ProgressReport save(ProgressReport report) {
                                 savedReports.add(report);
@@ -275,7 +294,8 @@ class GenerateProgressReportUseCaseTest {
                             public Optional<ProgressReport> findByProjectAndPeriodKeyAndLanguage(Integer projectId, String periodKey, String language) {
                                 return Optional.empty();
                             }
-                        },
+                        }),
+                        storedReportImageAssetService(),
                         event -> {
                         },
                         Clock.systemUTC()
@@ -384,5 +404,148 @@ class GenerateProgressReportUseCaseTest {
                 return Optional.of(report);
             }
         };
+    }
+
+    private StoredReportImageQueryService storedReportImageQueryService() {
+        return new StoredReportImageQueryService(
+                reportImageRepository(),
+                imageRepository(),
+                objectStorage(),
+                properties()
+        );
+    }
+
+    private StoredReportImageAssetService storedReportImageAssetService() {
+        return new StoredReportImageAssetService(
+                objectStorage(),
+                properties(),
+                new WebImageTransformer() {
+                    @Override
+                    public TransformedImage transform(byte[] sourceBytes, CameraSnapshotProfile profile) {
+                        return new TransformedImage(sourceBytes, "image/jpeg");
+                    }
+                }
+        );
+    }
+
+    private ReportArtifactPersistenceService reportArtifactPersistenceService(ProgressReportCatalogRepository progressReportCatalogRepository) {
+        return new ReportArtifactPersistenceService(progressReportCatalogRepository, reportImageRepository());
+    }
+
+    private ReportImageRepository reportImageRepository() {
+        return proxy(ReportImageRepository.class, (proxy, method, args) -> switch (method.getName()) {
+            case "findByReportIdOrderByIdAsc" -> List.of();
+            case "saveAll" -> args[0];
+            case "toString" -> "ReportImageRepositoryProxy";
+            case "hashCode" -> System.identityHashCode(proxy);
+            case "equals" -> proxy == args[0];
+            default -> throw new UnsupportedOperationException("Unexpected method: " + method.getName());
+        });
+    }
+
+    private ImageRepository imageRepository() {
+        return proxy(ImageRepository.class, (proxy, method, args) -> switch (method.getName()) {
+            case "findAllById" -> List.of();
+            case "toString" -> "ImageRepositoryProxy";
+            case "hashCode" -> System.identityHashCode(proxy);
+            case "equals" -> proxy == args[0];
+            default -> throw new UnsupportedOperationException("Unexpected method: " + method.getName());
+        });
+    }
+
+    private ObjectStorage objectStorage() {
+        return new ObjectStorage() {
+            @Override
+            public byte[] download(String bucket, String key) {
+                return new byte[0];
+            }
+
+            @Override
+            public boolean exists(String bucket, String key) {
+                return false;
+            }
+
+            @Override
+            public void upload(String bucket, String key, InputStream data, long size, String contentType) {
+            }
+
+            @Override
+            public String defaultBucket() {
+                return "bucket";
+            }
+
+            @Override
+            public String presign(String bucket, String key, Duration expiresAfter) {
+                return "signed://" + bucket + "/" + key;
+            }
+        };
+    }
+
+    private SitePulseProperties properties() {
+        return new SitePulseProperties(
+                "postgresql://sitepulse:sitepulse@localhost:5432/sitepulse",
+                "http://localhost:3000",
+                "minio",
+                "sitepulse-images",
+                60,
+                new SitePulseProperties.StorageProperties(
+                        "http://minio:9000",
+                        "http://localhost:9001",
+                        "admin",
+                        "password123",
+                        "us-east-1"
+                ),
+                "yolov8x.pt",
+                0.35,
+                "{}",
+                25.0,
+                false,
+                "roi_config.json",
+                0.0,
+                0,
+                255,
+                false,
+                "0 0/10 * * * *",
+                "0 5/10 * * * *",
+                "openai",
+                "0 0 2 * * *",
+                3,
+                "",
+                "",
+                "",
+                "",
+                "test-key",
+                "gpt-4.1",
+                52_428_800L,
+                "http://python-yolo:8000",
+                new SitePulseProperties.ImageWebSnapshotsProperties(false, 1920, 75, ImageFormat.WEBP, java.time.LocalTime.of(17, 0)),
+                new SitePulseProperties.AuthProperties(
+                        "http://localhost:3000",
+                        "sitepulse_session",
+                        false,
+                        "Lax",
+                        168,
+                        72,
+                        1,
+                        null,
+                        null,
+                        new SitePulseProperties.MailProperties(
+                                true,
+                                "SitePulse",
+                                "SitePulse <noreply@example.com>",
+                                null,
+                                new SitePulseProperties.ResendProperties(
+                                        true,
+                                        "https://api.resend.com",
+                                        "re_test"
+                                )
+                        )
+                )
+        );
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T proxy(Class<T> type, java.lang.reflect.InvocationHandler handler) {
+        return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, handler);
     }
 }

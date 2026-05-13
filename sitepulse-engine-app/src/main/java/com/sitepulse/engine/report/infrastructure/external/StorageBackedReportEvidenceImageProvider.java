@@ -38,6 +38,7 @@ public class StorageBackedReportEvidenceImageProvider implements ReportEvidenceI
         }
         return selectEvidence(rows, dateFrom, dateTo, maxImages).stream()
                 .map(image -> new ReportImageEvidence(
+                        image.getId(),
                         image.getCapturedAt() == null ? dateFrom.toString() : image.getCapturedAt().toLocalDate().toString(),
                         Base64.getEncoder().encodeToString(objectStorage.download(image.getBucket(), image.getKey())),
                         image.getCapturedAt(),

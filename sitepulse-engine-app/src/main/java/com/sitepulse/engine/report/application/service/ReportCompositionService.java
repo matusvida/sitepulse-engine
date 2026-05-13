@@ -9,7 +9,6 @@ import com.sitepulse.engine.report.domain.enums.ReportLanguage;
 import com.sitepulse.engine.report.domain.model.ProgressReport;
 import com.sitepulse.engine.report.domain.model.ReportImageEvidence;
 import com.sitepulse.engine.report.domain.enums.ReportType;
-import com.sitepulse.engine.report.domain.port.ProgressReportCatalogRepository;
 import com.sitepulse.engine.report.domain.port.ReportEvidenceImageProvider;
 import com.sitepulse.engine.report.domain.port.ReportGenerator;
 import java.time.Clock;
@@ -27,7 +26,8 @@ public class ReportCompositionService {
 
     private final ReportEvidenceImageProvider reportEvidenceImageProvider;
     private final ReportGenerator reportGenerator;
-    private final ProgressReportCatalogRepository progressReportCatalogRepository;
+    private final ReportArtifactPersistenceService reportArtifactPersistenceService;
+    private final StoredReportImageAssetService storedReportImageAssetService;
     private final DomainEventPublisher domainEventPublisher;
     private final Clock clock;
 
@@ -68,7 +68,8 @@ public class ReportCompositionService {
                 REPORT_MODEL,
                 OffsetDateTime.now(clock)
         );
-        ProgressReport savedReport = progressReportCatalogRepository.save(report);
+        var preparedImages = storedReportImageAssetService.prepare(report, imageData);
+        ProgressReport savedReport = reportArtifactPersistenceService.save(report, preparedImages);
         publish(savedReport);
         return savedReport;
     }
