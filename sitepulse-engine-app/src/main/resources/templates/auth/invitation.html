@@ -4,21 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{appName}} invitation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body style="margin:0;padding:0;background:#f4f1ea;font-family:Arial,sans-serif;color:#1f2933;">
+<body style="margin:0;padding:0;background:#f5f9ff;font-family:'Montserrat',Arial,sans-serif;color:#1f2933;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;">{{preheader}}</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f1ea;padding:32px 16px;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f9ff;padding:32px 16px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border:1px solid #d8d1c2;border-radius:20px;overflow:hidden;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border:1px solid #d9e5ff;border-radius:20px;overflow:hidden;">
           <tr>
-            <td style="padding:32px 32px 16px;background:linear-gradient(135deg,#f0ebe0 0%,#ffffff 100%);">
-              <div style="font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#9a6b33;font-weight:700;">{{appName}}</div>
+            <td style="padding:32px 32px 16px;background:linear-gradient(135deg,#edf4ff 0%,#ffffff 100%);">
+              <div style="font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#1d5fd1;font-weight:700;">{{appName}}</div>
               <h1 style="margin:16px 0 0;font-size:28px;line-height:1.2;color:#17212b;">You're invited</h1>
             </td>
           </tr>
           <tr>
-            <td style="padding:0 32px 32px;">
+            <td style="padding:32px;">
               <p style="margin:0 0 16px;font-size:16px;line-height:1.65;">Hi {{greetingName}},</p>
               <p style="margin:0 0 16px;font-size:16px;line-height:1.65;">
                 You've been invited to access {{appName}} with <strong>{{email}}</strong>.
@@ -27,11 +30,11 @@
                 Click the button below to set your password and activate your account. This invitation expires in {{expiryHours}} hours.
               </p>
               <p style="margin:0 0 28px;">
-                <a href="{{actionUrl}}" style="display:inline-block;padding:14px 22px;border-radius:999px;background:#b86f2b;color:#ffffff;text-decoration:none;font-weight:700;">{{actionLabel}}</a>
+                <a href="{{actionUrl}}" style="display:inline-block;padding:14px 22px;border-radius:999px;background:#1d5fd1;color:#ffffff;text-decoration:none;font-weight:700;">{{actionLabel}}</a>
               </p>
               <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#52606d;">If the button does not work, copy and paste this link into your browser:</p>
               <p style="margin:0 0 24px;font-size:14px;line-height:1.6;word-break:break-word;">
-                <a href="{{actionUrl}}" style="color:#b86f2b;text-decoration:none;">{{actionUrl}}</a>
+                <a href="{{actionUrl}}" style="color:#1d5fd1;text-decoration:none;">{{actionUrl}}</a>
               </p>
               <p style="margin:0;font-size:13px;line-height:1.6;color:#7b8794;">
                 If you were not expecting this invitation, you can safely ignore this email.
@@ -39,8 +42,8 @@
             </td>
           </tr>
           <tr>
-            <td style="padding:20px 32px;border-top:1px solid #ebe5da;font-size:12px;line-height:1.6;color:#7b8794;">
-              © {{currentYear}} {{appName}}
+            <td style="padding:20px 32px;border-top:1px solid #e2ebff;font-size:12px;line-height:1.6;color:#7b8794;">
+              &copy; {{currentYear}} {{appName}}
             </td>
           </tr>
         </table>
